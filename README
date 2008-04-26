@@ -1,0 +1,46 @@
+          --+ Py-PF - Managing OpenBSD's Packet Filter with Python +--
+
+
+Py-PF is a pure-Python module for managing OpenBSD's Packet Filter. It aims to
+add powerful and flexible scripting capabilities to PF, making integration with
+third-party software (like IDS, web-based configuration interfaces or custom
+management scripts) much easier.
+
+The only prerequisite is Python (2.3 or newer), which is available through
+OpenBSD's packages and ports system (see http://www.openbsd.org/faq/faq15.html).
+
+
+1. Installation notes
+---------------------
+
+Once you have downloaded the latest tarball, you just need to perform the
+following steps to get the module installed:
+
+  * unpack the tarball:
+
+      $ tar -zxvf py-PF-0.0.1.tar.gz
+
+  * move to the newly created directory:
+
+      $ cd ./py-PF-0.0.1/
+
+  * run the install script (as root) by typing:
+
+      # python setup.py install
+
+This will copy the PF module in the third-party modules directory, typically
+/usr/local/lib/python2.x/site-packages/.
+
+
+2. Tutorial
+-----------
+
+A detailed description of the PF module and its classes is available at
+
+http://www.kernel-panic.it/programming/py-pf/.
+
+For a brief list of references, documentation and books about Python, OpenBSD
+and Packet Filter, please refer to:
+
+http://www.kernel-panic.it/software/py-pf/resources.html.
+
