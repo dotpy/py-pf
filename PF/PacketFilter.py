@@ -6,10 +6,12 @@ kernel, thanks to the fcntl and ctypes modules.
 """
 
 
-import os, stat
+import os
+import stat
 from fcntl import ioctl
 from errno import *
 from ctypes import *
+from socket import *
 
 from _PFStruct import *
 from PF import *
@@ -36,9 +38,9 @@ def _IOWR(group, num, type):
 
 DIOCSTART        = _IO  ('D',  1)
 DIOCSTOP         = _IO  ('D',  2)
-#DIOCADDRULE      = _IOWR('D',  4, pfioc_rule)
-#DIOCGETRULES     = _IOWR('D',  6, pfioc_rule)
-#DIOCGETRULE      = _IOWR('D',  7, pfioc_rule)
+DIOCADDRULE      = _IOWR('D',  4, pfioc_rule)
+DIOCGETRULES     = _IOWR('D',  6, pfioc_rule)
+DIOCGETRULE      = _IOWR('D',  7, pfioc_rule)
 DIOCCLRSTATES    = _IOWR('D', 18, pfioc_state_kill)
 #DIOCGETSTATE     = _IOWR('D', 19, pfioc_state)
 DIOCSETSTATUSIF  = _IOWR('D', 20, pfioc_if)
@@ -54,7 +56,7 @@ DIOCGETTIMEOUT   = _IOWR('D', 30, pfioc_tm)
 #DIOCCLRRULECTRS  = _IO  ('D', 38)
 DIOCGETLIMIT     = _IOWR('D', 39, pfioc_limit)
 DIOCSETLIMIT     = _IOWR('D', 40, pfioc_limit)
-#DIOCKILLSTATES   = _IOWR('D', 41, pfioc_state_kill)
+DIOCKILLSTATES   = _IOWR('D', 41, pfioc_state_kill)
 DIOCSTARTALTQ    = _IO  ('D', 42)
 DIOCSTOPALTQ     = _IO  ('D', 43)
 #DIOCADDALTQ      = _IOWR('D', 45, pfioc_altq)
@@ -62,10 +64,10 @@ DIOCSTOPALTQ     = _IO  ('D', 43)
 #DIOCGETALTQ      = _IOWR('D', 48, pfioc_altq)
 #DIOCCHANGEALTQ   = _IOWR('D', 49, pfioc_altq)
 #DIOCGETQSTATS    = _IOWR('D', 50, pfioc_qstats)
-#DIOCBEGINADDRS   = _IOWR('D', 51, pfioc_pooladdr)
+DIOCBEGINADDRS   = _IOWR('D', 51, pfioc_pooladdr)
 #DIOCADDADDR      = _IOWR('D', 52, pfioc_pooladdr)
-#DIOCGETADDRS     = _IOWR('D', 53, pfioc_pooladdr)
-#DIOCGETADDR      = _IOWR('D', 54, pfioc_pooladdr)
+DIOCGETADDRS     = _IOWR('D', 53, pfioc_pooladdr)
+DIOCGETADDR      = _IOWR('D', 54, pfioc_pooladdr)
 #DIOCCHANGEADDR   = _IOWR('D', 55, pfioc_pooladdr)
 #DIOCGETRULESETS  = _IOWR('D', 58, pfioc_ruleset)
 #DIOCGETRULESET   = _IOWR('D', 59, pfioc_ruleset)
@@ -88,12 +90,12 @@ DIOCSTOPALTQ     = _IO  ('D', 43)
 #DIOCOSFPFLUSH    = _IO  ('D', 78)
 #DIOCOSFPADD      = _IOWR('D', 79, pf_osfp_ioctl)
 #DIOCOSFPGET      = _IOWR('D', 80, pf_osfp_ioctl)
-#DIOCXBEGIN       = _IOWR('D', 81, pfioc_trans)
-#DIOCXCOMMIT      = _IOWR('D', 82, pfioc_trans)
-#DIOCXROLLBACK    = _IOWR('D', 83, pfioc_trans)
+DIOCXBEGIN       = _IOWR('D', 81, pfioc_trans)
+DIOCXCOMMIT      = _IOWR('D', 82, pfioc_trans)
+DIOCXROLLBACK    = _IOWR('D', 83, pfioc_trans)
 #DIOCGETSRCNODES  = _IOWR('D', 84, pfioc_src_nodes)
 #DIOCCLRSRCNODES  = _IO  ('D', 85)
-#DIOCSETHOSTID    = _IOWR('D', 86, c_uint32)
+DIOCSETHOSTID    = _IOWR('D', 86, c_uint32)
 #DIOCIGETIFACES   = _IOWR('D', 87, pfioc_iface)
 #DIOCSETIFFLAG    = _IOWR('D', 89, pfioc_iface)
 #DIOCCLRIFFLAG    = _IOWR('D', 90, pfioc_iface)
@@ -224,6 +226,7 @@ class PacketFilter:
 
         d.close()
 
+
     def set_debug(self, level):
         """Set the debug level.
 
@@ -242,6 +245,23 @@ class PacketFilter:
         d = open(self.dev, "w")
         ioctl(d, DIOCSETDEBUG, l)
         d.close()
+
+
+    def set_hostid(self, id):
+        """Set the host ID.
+
+        The host ID is used by pfsync to identify the host that created a state
+        table entry. 'id' must be an integer.
+        """
+        if isinstance(id, int):
+            i = c_uint32(htonl(id))
+        else:
+            raise TypeError, "'id'must be an integer"
+
+        d = open(self.dev, "w")
+        ioctl(d, DIOCSETHOSTID, i)
+        d.close()
+
 
     def get_limit(self, limit=None):
         """Return the hard limits on the memory pools used by Packet Filter.
@@ -302,6 +322,7 @@ class PacketFilter:
             raise
         d.close()
 
+
     def get_timeout(self, timeout=None):
         """Return the state timeout of 'timeout'.
 
@@ -356,6 +377,7 @@ class PacketFilter:
 
         return pt.seconds
 
+
     def set_status_if(self, ifname=None):
         """Specify the interface for which statistics are accumulated.
 
@@ -404,6 +426,7 @@ class PacketFilter:
         ioctl(d, DIOCCLRSTATUS)
         d.close()
 
+
     def get_states(self):
         """Retrieve the state table entries.
 
@@ -447,4 +470,158 @@ class PacketFilter:
         d.close()
 
         return psk.psk_af
+
+    def kill_states(self, af=AF_UNSPEC, proto=None, src=None, dst=None, ifname=None):
+        """Clear states matching the specified arguments.
+
+        Return the number of killed states.
+        """
+        if not isinstance(af, int):
+            raise TypeError, "'af' must be a string"
+
+        if not proto:
+            proto = 0
+        elif not isinstance(proto, int):
+            raise TypeError, "'proto' must be an integer"
+
+        if not ifname:
+            ifname = ""
+        elif not isinstance(ifname, str):
+            raise TypeError, "'ifname' must be an integer"
+
+        try:
+            psk = pfioc_state_kill(psk_af=af,
+                                   psk_proto=proto,
+                                   psk_ifname=ifname)
+        except ValueError:
+            raise
+
+        if isinstance(src, PFRuleAddr):
+            psk.psk_src = src._to_struct()
+        elif src is not None:
+            raise ValueError, "'src' must be a PFRuleAddr instance"
+
+        if isinstance(dst, PFRuleAddr):
+            psk.psk_dst = dst._to_struct()
+        elif dst is not None:
+            raise ValueError, "'dst' must be a PFRuleAddr instance"
+
+        d = open(self.dev, "w")
+        ioctl(d, DIOCKILLSTATES, psk.asBuffer())
+        d.close()
+
+        return psk.psk_af
+
+
+    def _get_pool(self, pr, dev):
+        """Return the address pool for the specified rule."""
+        pool = PFPool(pr.rule.action, pr.rule.rpool)
+        pp   = pfioc_pooladdr(ticket=pr.ticket, r_action=pr.rule.action,
+                              r_num=pr.nr, anchor=pr.anchor)
+        ioctl(dev, DIOCGETADDRS, pp.asBuffer())
+
+        for nr in range(pp.nr):
+            pp.nr = nr
+            ioctl(dev, DIOCGETADDR, pp.asBuffer())
+            pool.append(PFRuleAddr(pf_rule_addr(addr=pp.addr.addr), pr.rule.af))
+
+        return pool
+
+    def _get_rules(self, path, dev):
+        """Return the rules corresponding to the path and action specified."""
+        pr = pfioc_rule(anchor=path)
+        rules = {}
+
+        for action in (PF_PASS, PF_SCRUB, PF_NAT, PF_RDR, PF_BINAT):
+            rules[action] = []
+
+            pr.rule.action = action
+            ioctl(dev, DIOCGETRULES, pr.asBuffer())
+
+            for nr in range(pr.nr):
+                pr.nr = nr
+                ioctl(dev, DIOCGETRULE, pr.asBuffer())
+                if pr.anchor_call:
+                    r = PFRuleset(pr.anchor_call, pr.rule)
+                    r.rules = self._get_rules(r.path, dev)
+                else:
+                    r = PFRule(pr.rule)
+                r.rpool = self._get_pool(pr, dev)
+                rules[action].append(r)
+
+        return rules
+
+    def get_ruleset(self, path=""):
+        """Return a PFRuleset object containing the active ruleset.
+
+        'path' is the name of the anchor to retrieve rules from.
+        """
+        if not isinstance(path, str):
+            raise TypeError, "'path' must be a string"
+
+        d = open(self.dev, "r")
+        rs = PFRuleset(path)
+        rs.rules = self._get_rules(path, d)
+        d.close()
+
+        return rs
+
+    def load_ruleset(self, ruleset, path=""):
+        """
+        """
+        rs_types = {PF_PASS:  PF_RULESET_FILTER,
+                    PF_SCRUB: PF_RULESET_SCRUB,
+                    PF_NAT:   PF_RULESET_NAT,
+                    PF_RDR:   PF_RULESET_RDR,
+                    PF_BINAT: PF_RULESET_BINAT}
+
+        pr = pfioc_rule()
+        pt = pfioc_trans()
+        pp = pfioc_pooladdr()
+
+        rs = [k for k, v in ruleset.rules.iteritems() if v]
+        array = (pfioc_trans_e * len(rs))()
+
+        for a, r in zip(array, rs):
+            a.rs_num = rs_types[r]
+            a.anchor = path
+
+        pt.size  = len(rs)
+        pt.esize = sizeof(pfioc_trans_e)
+        pt.array = addressof(array)
+
+        d = open(self.dev, "w")
+        ioctl(d, DIOCXBEGIN, pt.asBuffer())
+
+        for i, r in enumerate(rs):
+            for rule in ruleset.rules[r]:
+                try:
+                    ioctl(d, DIOCBEGINADDRS, pp.asBuffer())
+
+                    t = pp.ticket
+
+                    if rule.rpool:
+                        for addr in rule.rpool.addrs:
+                            pp.addr = addr._to_struct().addr
+                            ioctl(d, DIOCADDADDR, pp.asBuffer())
+
+                    pr.ticket = array[i].ticket
+                    pr.pool_ticket = t
+                    pr.anchor = path
+                    pr.rule = rule._to_struct()
+                    ioctl(d, DIOCADDRULE, pr.asBuffer())
+                except IOError:
+                    print "IOError"
+                    pass
+#                    ioctl(d, DIOCXROLLBACK, pt.asBuffer())
+
+        try:
+            ioctl(d, DIOCXCOMMIT, pt.asBuffer())
+        except IOError, (e, s):
+            if e == EBUSY:
+                raise PFError, "Ruleset is being updated by another process"
+            else:
+                raise
+        finally: 
+            d.close()
 

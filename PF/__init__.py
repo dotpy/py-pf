@@ -51,6 +51,9 @@ from PacketFilter import *
 __all__ = ['PFError',
            'PFStatus',
            'PFRuleAddr',
+           'PFPool',
+           'PFRule',
+           'PFRuleset',
            'PFStatePeer',
            'PFState',
            'PacketFilter']
