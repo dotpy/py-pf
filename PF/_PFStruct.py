@@ -38,6 +38,7 @@ PF_SKIP_COUNT        = 8
 PF_RULE_LABEL_SIZE   = 64
 PF_QNAME_SIZE        = 64
 PF_TAG_NAME_SIZE     = 64
+PF_ANCHOR_NAME_SIZE  = 64
 
 
 # BufferStructure Class ########################################################
@@ -251,6 +252,45 @@ class pf_rule_ptr(Union):
     _fields_ = [("ptr",               c_void_p),        # (pf_rule *)
                 ("nr",                c_uint32)]
 
+class pf_ruleset(Structure):
+
+    class _rules(Structure):
+
+        class _rs(Structure):
+            _fields = [("ptr",        c_void_p),
+                       ("ptr_array",  c_void_p),
+                       ("rcount",     c_uint32),
+                       ("ticket",     c_uint32),
+                       ("open",       c_int)]
+
+        _fields = [("queues",         c_void_p * 2),    # TAILQ_HEAD
+                   ("active",         _rs),
+                   ("inactive",       _rs)]
+
+    _fields_ = [("rules",             _rules * PF_RULESET_MAX),
+                ("anchor",            c_void_p),        # struct pf_anchor *
+                ("ttickets",          c_uint32),
+                ("tables",            c_int),
+                ("topen",             c_int)]
+
+class pf_anchor(Structure):
+
+    class _RB_ENTRY(Structure):
+        _fields_ = [("rbe_left",      c_void_p),
+                    ("rbe_right",     c_void_p),
+                    ("rbe_parent",    c_void_p),
+                    ("rbe_color",     c_int)]
+
+    _fields_ = [("entry_global",      _RB_ENTRY),
+                ("entry_node",        _RB_ENTRY),
+                ("parent",            c_void_p),        # *pf_anchor
+                ("children",          c_void_p),        # RB_HEAD
+                ("name",              c_char * PF_ANCHOR_NAME_SIZE),
+                ("path",              c_char * MAXPATHLEN),
+                ("ruleset",           pf_ruleset),
+                ("refcnt",            c_int),
+                ("match",             c_int)]
+
 class pf_rule(Structure):
 
     class _conn_rate(Structure):
@@ -273,7 +313,7 @@ class pf_rule(Structure):
                 ("packets",           c_uint64 * 2),
                 ("bytes",             c_uint64 * 2),
                 ("kif",               c_void_p),        # (struct pki_kif *)
-                ("anchor",            c_void_p),        # (struct pf_anchor *)
+                ("anchor",            POINTER(pf_anchor)),
                 ("overload_tbl",      c_void_p),        # (struct pfr_table *)
                 ("os_fingerprint",    c_uint32),
                 ("rtableid",          c_int),

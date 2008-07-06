@@ -65,7 +65,7 @@ DIOCSTOPALTQ     = _IO  ('D', 43)
 #DIOCCHANGEALTQ   = _IOWR('D', 49, pfioc_altq)
 #DIOCGETQSTATS    = _IOWR('D', 50, pfioc_qstats)
 DIOCBEGINADDRS   = _IOWR('D', 51, pfioc_pooladdr)
-#DIOCADDADDR      = _IOWR('D', 52, pfioc_pooladdr)
+DIOCADDADDR      = _IOWR('D', 52, pfioc_pooladdr)
 DIOCGETADDRS     = _IOWR('D', 53, pfioc_pooladdr)
 DIOCGETADDR      = _IOWR('D', 54, pfioc_pooladdr)
 #DIOCCHANGEADDR   = _IOWR('D', 55, pfioc_pooladdr)
@@ -528,26 +528,35 @@ class PacketFilter:
         return pool
 
     def _get_rules(self, path, dev):
-        """Return the rules corresponding to the path and action specified."""
+        """Return the rules corresponding to the path specified."""
+        actions = {PF_RULESET_FILTER: PF_PASS,
+                   PF_RULESET_SCRUB:  PF_SCRUB,
+                   PF_RULESET_NAT:    PF_NAT,
+                   PF_RULESET_RDR:    PF_RDR,
+                   PF_RULESET_BINAT:  PF_BINAT}
+
         pr = pfioc_rule(anchor=path)
         rules = {}
 
-        for action in (PF_PASS, PF_SCRUB, PF_NAT, PF_RDR, PF_BINAT):
-            rules[action] = []
+        for rs in (PF_RULESET_FILTER, PF_RULESET_SCRUB, PF_RULESET_NAT,
+                   PF_RULESET_RDR, PF_RULESET_BINAT):
+            rules[rs] = []
 
-            pr.rule.action = action
+            pr.rule.action = actions[rs]
             ioctl(dev, DIOCGETRULES, pr.asBuffer())
 
             for nr in range(pr.nr):
                 pr.nr = nr
                 ioctl(dev, DIOCGETRULE, pr.asBuffer())
                 if pr.anchor_call:
-                    r = PFRuleset(pr.anchor_call, pr.rule)
-                    r.rules = self._get_rules(r.path, dev)
+                    #r = PFRuleset(pr.anchor_call, pr.rule)
+                    r = PFRuleset(pr.anchor_call.split("/")[-1], pr.rule)
+                    p = "/".join(filter(None, (path, r.name)))
+                    r.rules = self._get_rules(p, dev)
                 else:
                     r = PFRule(pr.rule)
                 r.rpool = self._get_pool(pr, dev)
-                rules[action].append(r)
+                rules[rs].append(r)
 
         return rules
 
@@ -560,68 +569,79 @@ class PacketFilter:
             raise TypeError, "'path' must be a string"
 
         d = open(self.dev, "r")
-        rs = PFRuleset(path)
+        rs = PFRuleset(path.split("/")[-1])
         rs.rules = self._get_rules(path, d)
         d.close()
 
         return rs
 
-    def load_ruleset(self, ruleset, path=""):
-        """
-        """
-        rs_types = {PF_PASS:  PF_RULESET_FILTER,
-                    PF_SCRUB: PF_RULESET_SCRUB,
-                    PF_NAT:   PF_RULESET_NAT,
-                    PF_RDR:   PF_RULESET_RDR,
-                    PF_BINAT: PF_RULESET_BINAT}
+    def load_ruleset(self, ruleset, path="", rs_num=None):
+        """Load the given ruleset.
 
-        pr = pfioc_rule()
+        'path' is the name of the anchor where to load rules; 'rs_num' is a
+        single constant or a tuple of constants specifying which types of rules
+        should be loaded (e.g. PF_RULESET_FILTER, PF_RULESET_NAT, etc.).
+        """
+        if not isinstance(ruleset, PFRuleset):
+            raise TypeError, "'ruleset' must be a PFRuleset instance"
+
+        if not isinstance(path, str):
+            raise TypeError, "'path' must be a string"
+
+        if isinstance(rs_num, int):
+            rs_num = (rs_num, )
+        elif rs_num is None:
+            rs_num = (PF_RULESET_NAT, PF_RULESET_BINAT, PF_RULESET_RDR,
+                      PF_RULESET_SCRUB, PF_RULESET_FILTER)
+        elif not isinstance(rs_num, tuple):
+            raise TypeError, "'rs_num' must be a tuple or an integer"
+
         pt = pfioc_trans()
-        pp = pfioc_pooladdr()
+        array = (pfioc_trans_e * len(rs_num))()
 
-        rs = [k for k, v in ruleset.rules.iteritems() if v]
-        array = (pfioc_trans_e * len(rs))()
-
-        for a, r in zip(array, rs):
-            a.rs_num = rs_types[r]
+        for a, n in zip(array, rs_num):
+            a.rs_num = n
             a.anchor = path
 
-        pt.size  = len(rs)
+        pt.size  = len(rs_num)
         pt.esize = sizeof(pfioc_trans_e)
         pt.array = addressof(array)
 
         d = open(self.dev, "w")
         ioctl(d, DIOCXBEGIN, pt.asBuffer())
 
-        for i, r in enumerate(rs):
-            for rule in ruleset.rules[r]:
-                try:
+        try:
+            for a in array:
+                for rule in ruleset.rules[a.rs_num]:
+                    pp = pfioc_pooladdr()
+                    pr = pfioc_rule()
+
                     ioctl(d, DIOCBEGINADDRS, pp.asBuffer())
 
-                    t = pp.ticket
+                    pr.ticket = a.ticket
+                    pr.pool_ticket = pp.ticket
+                    pr.rule = rule._to_struct()
+                    pr.anchor = path
+
+                    if isinstance(rule, PFRuleset):
+                        pr.anchor_call = rule.name
 
                     if rule.rpool:
+                        pr.rule.rpool = rule.rpool._to_struct()
                         for addr in rule.rpool.addrs:
-                            pp.addr = addr._to_struct().addr
+                            pp.addr.addr = addr._to_struct().addr
                             ioctl(d, DIOCADDADDR, pp.asBuffer())
 
-                    pr.ticket = array[i].ticket
-                    pr.pool_ticket = t
-                    pr.anchor = path
-                    pr.rule = rule._to_struct()
                     ioctl(d, DIOCADDRULE, pr.asBuffer())
-                except IOError:
-                    print "IOError"
-                    pass
-#                    ioctl(d, DIOCXROLLBACK, pt.asBuffer())
 
-        try:
-            ioctl(d, DIOCXCOMMIT, pt.asBuffer())
+                    if isinstance(rule, PFRuleset):
+                        p = "/".join(filter(None, (path, rule.name)))
+                        self.load_ruleset(rule, p, rs_num)
         except IOError, (e, s):
-            if e == EBUSY:
-                raise PFError, "Ruleset is being updated by another process"
-            else:
-                raise
-        finally: 
-            d.close()
+            ioctl(d, DIOCXROLLBACK, pt.asBuffer())
+            raise PFError, "Failed to load ruleset: %s" % s
+
+        ioctl(d, DIOCXCOMMIT, pt.asBuffer())
+
+        d.close()
 

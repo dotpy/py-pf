@@ -17,11 +17,11 @@ __all__ = ['PFRuleAddr',
 
 
 # Dictionaries for mapping strings to constants ################################
-pf_actions  = {"pass":      PF_PASS,
-               "scrub":     PF_SCRUB,
-               "nat":       PF_NAT,
-               "rdr":       PF_RDR,
-               "binat":     PF_BINAT}
+pf_rulesets = {"filter":    PF_RULESET_FILTER,
+               "scrub":     PF_RULESET_SCRUB,
+               "nat":       PF_RULESET_NAT,
+               "rdr":       PF_RULESET_RDR,
+               "binat":     PF_RULESET_BINAT}
 
 pf_port_ops = {"":          PF_OP_NONE,
                "><":        PF_OP_IRG,
@@ -441,7 +441,7 @@ class PFPool:
         """Initalize a new instance from a pf_pool structure."""
         self.key        = "0x%08x%08x%08x%08x" % tuple(p.key.key32[:])
         self.tblidx     = p.tblidx
-        self.proxy_port = tuple(p.proxy_port[:])
+        self.proxy_port = tuple(map(ntohs, p.proxy_port))
         self.port_op    = p.port_op
         self.opts       = p.opts
 
@@ -459,7 +459,13 @@ class PFPool:
 
     def _to_struct(self):
         """Convert a PFPool object to a pf_pool structure."""
-        raise NotImplementedError
+        p = pf_pool()
+
+        p.proxy_port[:] = self.proxy_port
+        p.port_op = self.port_op
+        p.opts = self.opts
+
+        return p
 
     def _to_string(self):
         """Return the string representation of the address pool."""
@@ -704,10 +710,10 @@ class PFRule:
         if self.action > PF_NORDR:
             s = "action(%d)" % self.action
         elif isinstance(self, PFRuleset):
-            if self.path:
+            if self.name:
                 s = pf_anchors[self.action]
-                if not self.path.startswith("_"):
-                    s += " \"%s\"" % self.path.split("/")[-1]
+                if not self.name.startswith("_"):
+                    s += " \"%s\"" % self.name
         else:
             s = pf_actions[self.action]
             if self.natpass:
@@ -912,36 +918,37 @@ class PFRule:
 class PFRuleset(PFRule):
     """Class representing a Packet Filter ruleset or anchor."""
 
-    def __init__(self, path="", rule=None, **kw):
+    def __init__(self, name="", rule=None, **kw):
         """Check arguments and initialize instance attributes."""
         PFRule.__init__(self, rule, **kw)
 
-        if not isinstance(path, str):
-            raise TypeError, "'path' must be a string"
-        self.path = path
+        if not isinstance(name, str):
+            raise TypeError, "'name' must be a string"
+        self.name = name
 
-        self.rules = {PF_PASS:  [],
-                      PF_SCRUB: [],
-                      PF_NAT:   [],
-                      PF_RDR:   [],
-                      PF_BINAT: []}
+        self.rules = {PF_RULESET_FILTER: [],
+                      PF_RULESET_SCRUB:  [],
+                      PF_RULESET_NAT:    [],
+                      PF_RULESET_RDR:    [],
+                      PF_RULESET_BINAT:  []}
 
     def _to_string(self):
         """Return the string representation of the ruleset."""
-        actions = (PF_NAT, PF_RDR, PF_BINAT, PF_SCRUB, PF_PASS)
+        rs = (PF_RULESET_NAT, PF_RULESET_RDR, PF_RULESET_BINAT,
+              PF_RULESET_SCRUB, PF_RULESET_FILTER)
         s = ""
 
-        for action in actions:
-            for rule in self.rules[action]:
+        for r in rs:
+            for rule in self.rules[r]:
                 s += "%s\n" % PFRule._to_string(rule)
 
         return s[:-1]
 
     def append(self, action, rule):
         """Append a rule of type 'action' to the list of rules."""
-        if action in pf_actions.keys():
-            a = pf_actions[action]
-        elif action in pf_actions.values():
+        if action in pf_rulesets.keys():
+            a = pf_rulesets[action]
+        elif action in pf_rulesets.values():
             a = action
         elif isinstance(action, (str, int)):
             raise ValueError, "Not a valid action: '%s'" % action
