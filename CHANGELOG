@@ -1,3 +1,15 @@
+Jul 06, 2008 -- version 0.0.2
+
+    - Added support for loading rulesets, by means of the
+      PacketFilter.load_ruleset() method
+    - Added the possibility to selectively kill states, based on address family,
+      transport layer protocol, source and destination addresses and interface
+      name, thanks to the PacketFilter.kill_states() method
+    - Added the PacketFilter.set_hostid() method, which allows you to set the
+      hostid, a numeric value used by pfsync(4) to identify which host created
+      state table entries
+
+
 Apr 26, 2008 -- version 0.0.1
 
     - Initial release
