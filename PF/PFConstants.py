@@ -4,8 +4,6 @@
 import sys
 
 
-UINT_MAX                = sys.maxint * 2 + 1
-
 # Actions
 PF_PASS                 = 0
 PF_DROP                 = 1
@@ -26,6 +24,8 @@ PF_RULESET_NAT          = 2
 PF_RULESET_BINAT        = 3
 PF_RULESET_RDR          = 4
 PF_RULESET_MAX          = 5
+PF_RULESET_ALTQ         = 5
+PF_RULESET_TABLE        = 6
 
 # PF rule flags
 PFRULE_DROP             = 0x0000
@@ -36,16 +36,43 @@ PFRULE_RETURN           = 0x0008
 PFRULE_NOSYNC           = 0x0010
 PFRULE_SRCTRACK         = 0x0020
 PFRULE_RULESRCTRACK     = 0x0040
+# PF scrub flags
 PFRULE_NODF             = 0x0100
 PFRULE_FRAGCROP         = 0x0200
 PFRULE_FRAGDROP         = 0x0400
 PFRULE_RANDOMID         = 0x0800
 PFRULE_REASSEMBLE_TCP   = 0x1000
+PFRULE_SET_TOS          = 0x2000
+# PF rule flags
+PFRULE_IFBOUND          = 0x00010000
+PFRULE_STATESLOPPY      = 0x00020000
+
+# Port comparison operators
+PF_OP_NONE              = 0
+PF_OP_IRG               = 1
+PF_OP_EQ                = 2
+PF_OP_NE                = 3
+PF_OP_LT                = 4
+PF_OP_LE                = 5
+PF_OP_GT                = 6
+PF_OP_GE                = 7
+PF_OP_XRG               = 8
+PF_OP_RRG               = 9
 
 # PF keep states
 PF_STATE_NORMAL         = 0x1
 PF_STATE_MODULATE       = 0x2
 PF_STATE_SYNPROXY       = 0x3
+
+# State keys
+PF_SK_WIRE              = 0
+PF_SK_STACK             = 1
+PF_SK_BOTH              = 2
+
+# Log options
+PF_LOG                  = 0x01
+PF_LOG_ALL              = 0x02
+PF_LOG_SOCKET_LOOKUP    = 0x04
 
 # Address types
 PF_ADDR_ADDRMASK        = 0
@@ -68,18 +95,6 @@ PFI_AFLAG_PEER          = 0x04
 PFI_AFLAG_MODEMASK      = 0x07
 PFI_AFLAG_NOALIAS       = 0x08
 
-# Port comparison operators
-PF_OP_NONE              = 0
-PF_OP_IRG               = 1
-PF_OP_EQ                = 2
-PF_OP_NE                = 3
-PF_OP_LT                = 4
-PF_OP_LE                = 5
-PF_OP_GT                = 6
-PF_OP_GE                = 7
-PF_OP_XRG               = 8
-PF_OP_RRG               = 9
-
 # Traffic directions
 PF_INOUT                = 0
 PF_IN                   = 1
@@ -100,12 +115,14 @@ PF_POOL_RANDOM          = 2
 PF_POOL_SRCHASH         = 3
 PF_POOL_ROUNDROBIN      = 4
 
-
 # Debug levels
 PF_DEBUG_NONE           = 0
 PF_DEBUG_URGENT         = 1
 PF_DEBUG_MISC           = 2
 PF_DEBUG_NOISY          = 3
+
+# The 'unlimited' value for limits on the memory pools
+UINT_MAX                = sys.maxint * 2 + 1
 
 # Limits
 PF_LIMIT_STATES         = 0
@@ -140,7 +157,6 @@ PFTM_MAX                = 20
 PFTM_PURGE              = 21
 PFTM_UNLINKED           = 22
 PFTM_UNTIL_PACKET       = 23
-
 
 # TCP States
 TCPS_CLOSED             = 0
@@ -177,10 +193,26 @@ PFSYNC_FLAG_STALE       = 0x02
 PFSYNC_FLAG_SRCNODE     = 0x04
 PFSYNC_FLAG_NATSRCNODE  = 0x08
 
-# PF States
+# PF states sync flags
 PFSTATE_NOSYNC          = 0x01
 PFSTATE_FROMSYNC        = 0x02
 PFSTATE_STALE           = 0x04
+# PF states flags
+PFSTATE_ALLOWOPTS       = 0x01
+PFSTATE_SLOPPY          = 0x02
+
+
+# Table flags
+PFR_TFLAG_PERSIST       = 0x01
+PFR_TFLAG_CONST         = 0x02
+PFR_TFLAG_ACTIVE        = 0x04
+PFR_TFLAG_INACTIVE      = 0x08
+PFR_TFLAG_REFERENCED    = 0x10
+PFR_TFLAG_REFDANCHOR    = 0x20
+PFR_TFLAG_COUNTERS      = 0x40
+PFR_TFLAG_USRMASK       = 0x43
+PFR_TFLAG_SETMASK       = 0x3C
+PFR_TFLAG_ALLMASK       = 0x7F
 
 
 # ICMP types
@@ -284,4 +316,3 @@ ICMP6_PARAMPROB_NEXTHEADER       = 1
 ICMP6_PARAMPROB_OPTION           = 2
 ND_REDIRECT_ONLINK               = 0
 ND_REDIRECT_ROUTER               = 1
-

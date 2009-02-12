@@ -1,16 +1,20 @@
 """Miscellaneous network and PF-related utilities"""
 
+
+from __future__ import with_statement
 import re
 from socket import *
 
-from PFConstants import *
+from PF.PFConstants import *
 
 
 __all__ = ['getprotobynumber',
            'geticmpcodebynumber',
-           'geticmptypebynumber']
+           'geticmptypebynumber',
+           'ctonm',
+           'nmtoc']
 
- 
+
 # Dictionaries for mapping strings to constants ################################
 icmp_codes = {
     (ICMP_UNREACH,        ICMP_UNREACH_NET):                 "net-unr",
@@ -118,22 +122,17 @@ icmp6_types = {
 def getprotobynumber(number, file="/etc/protocols"):
     """Map a protocol number to a name.
 
-    Return the protocol name or None if no match is found."""
-    try:
-        f = open(file, "r")
-    except:
-        return None     # Fail silently
-
+    Return the protocol name or None if no match is found.
+    """
     r = re.compile("(\S+)\s+(\d+)")
 
-    for line in f:
-        m = r.match(line.split("#")[0].strip())
-        if m:
-            proto, num = m.groups()
-            if int(num) == number:
-                return proto
-
-    return None
+    with open(file, 'r') as f:
+        for line in f:
+            m = r.match(line)
+            if m:
+                proto, num = m.groups()
+                if int(num) == number:
+                    return proto
 
 def geticmpcodebynumber(type, code, af):
     """Return the ICMP code as a string."""
@@ -155,3 +154,25 @@ def geticmptypebynumber(type, af):
     except KeyError:
         return None
 
+def ctonm(cidr, af):
+    """Convert CIDR to netmask."""
+    try:
+        l = {AF_INET: 32, AF_INET6: 128}[af]
+    except KeyError:
+        raise ValueError("Invalid address family")
+
+    b = "1" * cidr + "0" * (l - cidr)
+    mask = "".join([chr(int(b[i:i+8], base=2)) for i in range(0, l, 8)])
+
+    return inet_ntop(af, mask)
+
+def nmtoc(netmask, af):
+    """Convert netmask to CIDR."""
+    cidr = 0
+
+    for b in map(ord, inet_pton(af, netmask)):
+        while b:
+            cidr += b & 1
+            b >>= 1
+
+    return cidr

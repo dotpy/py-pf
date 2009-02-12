@@ -1,4 +1,4 @@
-"""A class for managing PF through the ioctl(2) interface provided by pf(4).
+"""A class for managing OpenBSD's Packet Filter.
 
 This class communicates with the kernel through the ioctl(2) interface provided
 by the pf(4) pseudo-device; this allows Python to natively send commands to the
@@ -6,6 +6,7 @@ kernel, thanks to the fcntl and ctypes modules.
 """
 
 
+from __future__ import with_statement
 import os
 import stat
 from fcntl import ioctl
@@ -13,8 +14,8 @@ from errno import *
 from ctypes import *
 from socket import *
 
-from _PFStruct import *
 from PF import *
+from PF._PFStruct import *
 
 
 __all__ = ['PacketFilter']
@@ -71,17 +72,17 @@ DIOCGETADDR      = _IOWR('D', 54, pfioc_pooladdr)
 #DIOCCHANGEADDR   = _IOWR('D', 55, pfioc_pooladdr)
 #DIOCGETRULESETS  = _IOWR('D', 58, pfioc_ruleset)
 #DIOCGETRULESET   = _IOWR('D', 59, pfioc_ruleset)
-#DIOCRCLRTABLES   = _IOWR('D', 60, pfioc_table)
-#DIOCRADDTABLES   = _IOWR('D', 61, pfioc_table)
-#DIOCRDELTABLES   = _IOWR('D', 62, pfioc_table)
-#DIOCRGETTABLES   = _IOWR('D', 63, pfioc_table)
+DIOCRCLRTABLES   = _IOWR('D', 60, pfioc_table)
+DIOCRADDTABLES   = _IOWR('D', 61, pfioc_table)
+DIOCRDELTABLES   = _IOWR('D', 62, pfioc_table)
+DIOCRGETTABLES   = _IOWR('D', 63, pfioc_table)
 #DIOCRGETTSTATS   = _IOWR('D', 64, pfioc_table)
 #DIOCRCLRTSTATS   = _IOWR('D', 65, pfioc_table)
-#DIOCRCLRADDRS    = _IOWR('D', 66, pfioc_table)
-#DIOCRADDADDRS    = _IOWR('D', 67, fioc_table)
-#DIOCRDELADDRS    = _IOWR('D', 68, pfioc_table)
-#DIOCRSETADDRS    = _IOWR('D', 69, pfioc_table)
-#DIOCRGETADDRS    = _IOWR('D', 70, pfioc_table)
+DIOCRCLRADDRS    = _IOWR('D', 66, pfioc_table)
+DIOCRADDADDRS    = _IOWR('D', 67, pfioc_table)
+DIOCRDELADDRS    = _IOWR('D', 68, pfioc_table)
+DIOCRSETADDRS    = _IOWR('D', 69, pfioc_table)
+DIOCRGETADDRS    = _IOWR('D', 70, pfioc_table)
 #DIOCRGETASTATS   = _IOWR('D', 71, pfioc_table)
 #DIOCRCLRASTATS   = _IOWR('D', 72, pfioc_table)
 #DIOCRTSTADDRS    = _IOWR('D', 73, pfioc_table)
@@ -102,420 +103,226 @@ DIOCSETHOSTID    = _IOWR('D', 86, c_uint32)
 #DIOCKILLSRCNODES = _IOWR('D', 91, pfioc_src_node_kill)
 
 
-# Dictionaries for mapping strings to constants ################################
-dbg_levels       = {"none":            PF_DEBUG_NONE,
-                    "urgent":          PF_DEBUG_URGENT,
-                    "misc":            PF_DEBUG_MISC,
-                    "loud":            PF_DEBUG_NOISY}
-
-pf_limits        = {"states":          PF_LIMIT_STATES,
-                    "src-nodes":       PF_LIMIT_SRC_NODES,
-                    "frags":           PF_LIMIT_FRAGS,
-                    "tables":          PF_LIMIT_TABLES,
-                    "table-entries":   PF_LIMIT_TABLE_ENTRIES}
-
-pf_timeouts      = {"tcp.first":       PFTM_TCP_FIRST_PACKET,
-                    "tcp.opening":     PFTM_TCP_OPENING,
-                    "tcp.established": PFTM_TCP_ESTABLISHED,
-                    "tcp.closing":     PFTM_TCP_CLOSING,
-                    "tcp.finwait":     PFTM_TCP_FIN_WAIT,
-                    "tcp.closed":      PFTM_TCP_CLOSED,
-                    "tcp.tsdiff":      PFTM_TS_DIFF,
-                    "udp.first":       PFTM_UDP_FIRST_PACKET,
-                    "udp.single":      PFTM_UDP_SINGLE,
-                    "udp.multiple":    PFTM_UDP_MULTIPLE,
-                    "icmp.first":      PFTM_ICMP_FIRST_PACKET,
-                    "icmp.error":      PFTM_ICMP_ERROR_REPLY,
-                    "other.first":     PFTM_OTHER_FIRST_PACKET,
-                    "other.single":    PFTM_OTHER_SINGLE,
-                    "other.multiple":  PFTM_OTHER_MULTIPLE,
-                    "frag":            PFTM_FRAG,
-                    "interval":        PFTM_INTERVAL,
-                    "adaptive.start":  PFTM_ADAPTIVE_START,
-                    "adaptive.end":    PFTM_ADAPTIVE_END,
-                    "src.track":       PFTM_SRC_NODE}
-
-
 # PacketFilter class ###########################################################
 class PacketFilter:
     """Class representing the kernel's packet filtering subsystem.
 
     It provides a set of methods that allow you to send commands to the kernel
     through the ioctl(2) interface provided by the pf(4) pseudo-device.
-    Basically, all methods in this class are just wrappers to ioctl(2) calls.
+    Basically, all methods in this class are just wrappers to ioctl(2) calls,
+    and may consequently raise IOError if the ioctl() request fails.
     """
 
-    def __init__(self, dev="/dev/pf"):
-        """Set the pf device.
-
-        Raise PFError if the pf device is not valid.
-        """
-        try:
-            mode = os.stat(dev)[stat.ST_MODE]
-        except OSError, (e, s):
-            raise PFError, "%s: '%s'" % (s, dev)
-        else:
-            if not stat.S_ISCHR(mode):
-                raise PFError, "Not a character device: '%s'" % dev
-
+    def __init__(self, dev='/dev/pf'):
+        """Set the pf device."""
         self.dev = dev
 
     def enable(self):
-        """Enable Packet Filtering and Network Address Translation.
-
-        Raise IOError if the ioctl() request fails.
-        """
-        d = open(self.dev, "w")
-
-        try:
-            ioctl(d, DIOCSTART)
-        except IOError, (e, s):
-            if e != EEXIST:       # EEXIST means PF is already enabled
-                raise
-
-        d.close()
+        """Enable Packet Filtering and Network Address Translation."""
+        with open(self.dev, 'w') as d:
+            try:
+                ioctl(d, DIOCSTART)
+            except IOError, (e, s):
+                if e != EEXIST:       # EEXIST means PF is already enabled
+                    raise
 
     def disable(self):
-        """Disable Packet Filtering and Network Address Translation.
-
-        Raise IOError if the ioctl() request fails.
-        """
-        d = open(self.dev, "w")
-
-        try:
-            ioctl(d, DIOCSTOP)
-        except IOError, (e, s):
-            if e != ENOENT:       # ENOENT means PF is already disabled
-                raise
-
-        d.close()
+        """Disable Packet Filtering and Network Address Translation."""
+        with open(self.dev, 'w') as d:
+            try:
+                ioctl(d, DIOCSTOP)
+            except IOError, (e, s):
+                if e != ENOENT:       # ENOENT means PF is already disabled
+                    raise
 
     def enable_altq(self):
         """Enable the ALTQ bandwidth control and packet prioritization system.
 
-        Raise PFError if ALTQ is not supported by the system or IOError if the
-        ioctl() request fails.
+        Raise PFError if ALTQ is not supported by the system.
         """
-        d = open(self.dev, "w")
-
-        try:
-            ioctl(d, DIOCSTARTALTQ)
-        except IOError, (e, s):
-            if e == ENODEV:
-                raise PFError, "No ALTQ support in kernel"
-            elif e != EEXIST:     # EEXIST means ALTQ is already enabled
-                raise
-
-        d.close()
+        with open(self.dev, 'w') as d:
+            try:
+                ioctl(d, DIOCSTARTALTQ)
+            except IOError, (e, s):
+                if e == ENODEV:
+                    raise PFError("No ALTQ support in kernel")
+                elif e != EEXIST:     # EEXIST means ALTQ is already enabled
+                    raise
 
     def disable_altq(self):
         """Disable the ALTQ bandwidth control and packet prioritization system.
 
-        Raise PFError if ALTQ is not supported by the system or IOError if the
-        ioctl() request fails.
+        Raise PFError if ALTQ is not supported by the system.
         """
-        d = open(self.dev, "w")
-
-        try:
-            ioctl(d, DIOCSTOPALTQ)
-        except IOError, (e, s):
-            if e == ENODEV:
-                raise PFError, "No ALTQ support in kernel"
-            elif e != ENOENT:     # ENOENT means ALTQ is already disabled
-                raise
-
-        d.close()
-
+        with open(self.dev, 'w') as d:
+            try:
+                ioctl(d, DIOCSTOPALTQ)
+            except IOError, (e, s):
+                if e == ENODEV:
+                    raise PFError("No ALTQ support in kernel")
+                elif e != ENOENT:     # ENOENT means ALTQ is already disabled
+                    raise
 
     def set_debug(self, level):
         """Set the debug level.
 
-        The debug level can be either one of the PF_DEBUG_* constants or a
-        string. Raise IOError if the ioctl() request fails.
+        'level' must be one of the PF_DEBUG_* constants.
         """
-        if level in dbg_levels.keys():
-            l = c_uint32(dbg_levels[level])
-        elif level in dbg_levels.values():
-            l = c_uint32(level)
-        elif isinstance(level, (int, str)):
-            raise ValueError, "Not a valid debug level: '%s'" % level
-        else:
-            raise TypeError, "'level'must be an integer or a string"
-
-        d = open(self.dev, "w")
-        ioctl(d, DIOCSETDEBUG, l)
-        d.close()
-
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCSETDEBUG, c_uint32(level))
 
     def set_hostid(self, id):
         """Set the host ID.
 
         The host ID is used by pfsync to identify the host that created a state
-        table entry. 'id' must be an integer.
+        table entry. 'id' must be a 32-bit unsigned integer.
         """
-        if isinstance(id, int):
-            i = c_uint32(htonl(id))
-        else:
-            raise TypeError, "'id'must be an integer"
-
-        d = open(self.dev, "w")
-        ioctl(d, DIOCSETHOSTID, i)
-        d.close()
-
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCSETHOSTID, c_uint32(htonl(id)))
 
     def get_limit(self, limit=None):
         """Return the hard limits on the memory pools used by Packet Filter.
 
-        'limit' can be either one of the PF_LIMIT_* constants or a string;
-        return the value of the requested limit (UINT_MAX means unlimited) or,
-        if called with no arguments, a dictionary containing all the available
-        limits.
-        Raise IOError if the ioctl() request fails.
+        'limit' must be one of the PF_LIMIT_* constants. Return the value of the
+        requested limit (UINT_MAX means unlimited) or, if called with no
+        arguments, a tuple containing all the available limits.
         """
         if limit is None:
-            return dict([(k, self.get_limit(k)) for k in pf_limits.keys()])
-        elif limit in pf_limits.keys():
-            i = pf_limits[limit]
-        elif limit in pf_limits.values():
-            i = limit
-        elif isinstance(limit, (int, str)):
-            raise ValueError, "Not a valid limit: '%s'" % limit
-        else:
-            raise TypeError, "'limit' must be an integer or a string"
+            return tuple([self.get_limit(l) for l in range(PF_LIMIT_MAX)])
 
-        pl = pfioc_limit(index=i)
-
-        d = open(self.dev, "r")
-        ioctl(d, DIOCGETLIMIT, pl.asBuffer())
-        d.close()
+        pl = pfioc_limit(index=limit)
+        with open(self.dev, 'r') as d:
+            ioctl(d, DIOCGETLIMIT, pl.asBuffer())
 
         return pl.limit
 
     def set_limit(self, limit, value):
         """Set hard limits on the memory pools used by Packet Filter.
 
-        'limit' can be either one of the PF_LIMIT_* constants or a string; a
-        'value' of UINT_MAX means unlimited.
-        Raise IOError if the ioctl() request fails or PFError if the current
-        pool size exceeds the requested hard limit.
+        'limit' must be one of the PF_LIMIT_* constants; a 'value' of UINT_MAX
+        means unlimited. Raise PFError if the current pool size exceeds the
+        requested hard limit.
         """
-        if limit in pf_limits.keys():
-            i = pf_limits[limit]
-        elif limit in pf_limits.values():
-            i = limit
-        elif isinstance(limit, (int, str)):
-            raise ValueError, "Not a valid limit: '%s'" % limit
-        else:
-            raise TypeError, "'limit' must be an integer or a string"
-
-        if not isinstance(value, (int, long)):
-            raise TypeError, "'value' must be an integer"
-
-        pl = pfioc_limit(index=i, limit=value)
-
-        d = open(self.dev, "w")
-        try:
-            ioctl(d, DIOCSETLIMIT, pl.asBuffer())
-        except IOError, (e, s):
-            if e == EBUSY:
-                raise PFError, "Current pool size exceeds requested hard limit"
-            raise
-        d.close()
-
+        pl = pfioc_limit(index=limit, limit=value)
+        with open(self.dev, 'w') as d:
+            try:
+                ioctl(d, DIOCSETLIMIT, pl.asBuffer())
+            except IOError, (e, s):
+                if e == EBUSY:
+                    raise PFError("Current pool size exceeds requested hard limit")
+                raise
 
     def get_timeout(self, timeout=None):
         """Return the state timeout of 'timeout'.
 
-        'timeout' can be either one of the PFTM_* constants or a string; return
-        the value of the requested timeout or, if called with no arguments, a
-        dictionary containing all the available timeouts.
-        Raise IOError if the ioctl() request fails.
+        'timeout' must be one of the PFTM_* constants; return the value of the
+        requested timeout or, if called with no arguments, a tuple containing
+        all the available timeouts.
         """
         if timeout is None:
-            return dict([(k, self.get_timeout(k)) for k in pf_timeouts.keys()])
-        elif timeout in pf_timeouts.keys():
-            t = pf_timeouts[timeout]
-        elif timeout in pf_timeouts.values():
-            t = timeout
-        elif isinstance(timeout, (int, str)):
-            raise ValueError, "Not a valid timeout: '%s'" % timeout
-        else:
-            raise TypeError, "'timeout' must be an integer or a string"
+            return tuple([self.get_timeout(t) for t in range(PFTM_MAX)])
 
-        pt = pfioc_tm(timeout=t)
-
-        d = open(self.dev, "r")
-        ioctl(d, DIOCGETTIMEOUT, pt.asBuffer())
-        d.close()
+        pt = pfioc_tm(timeout=timeout)
+        with open(self.dev, 'r') as d:
+            ioctl(d, DIOCGETTIMEOUT, pt.asBuffer())
 
         return pt.seconds
 
     def set_timeout(self, timeout, value):
         """Set the state timeout of 'timeout' to 'value'.
 
-        'timeout' can be either one of the PFTM_* constants or a string; return
-        the old value of the specified timeout.
-        Raise IOError if the ioctl() request fails.
+        'timeout' must be one of the PFTM_* constants; return the old value of
+        the specified timeout.
         """
-        if timeout in pf_timeouts.keys():
-            t = pf_timeouts[timeout]
-        elif timeout in pf_timeouts.values():
-            t = timeout
-        elif isinstance(timeout, (int, str)):
-            raise ValueError, "Not a valid timeout: '%s'" % timeout
-        else:
-            raise TypeError, "'timeout' must be an integer or a string"
-
-        if not isinstance(value, int):
-            raise TypeError, "'value' must be an integer"
-
-        pt = pfioc_tm(timeout=t, seconds=value)
-
-        d = open(self.dev, "w")
-        ioctl(d, DIOCSETTIMEOUT, pt.asBuffer())
-        d.close()
+        pt = pfioc_tm(timeout=timeout, seconds=value)
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCSETTIMEOUT, pt.asBuffer())
 
         return pt.seconds
 
-
-    def set_status_if(self, ifname=None):
+    def set_status_if(self, ifname=""):
         """Specify the interface for which statistics are accumulated.
 
-        If 'ifname' is None, turn off the collection of per-interface
-        statistics. Raise IOError if the ioctl() request fails or PFError if
-        'ifname' is not a valid interface name.
+        If no 'ifname' is provided, turn off the collection of per-interface
+        statistics. Raise PFError if 'ifname' is not a valid interface name.
         """
-        if not ifname:
-            ifname = ""
-        elif not isinstance(ifname, str):
-            raise TypeError, "'ifname' must be a string or None"
-
-        try:
-            pi = pfioc_if(ifname=ifname)
-        except ValueError:
-            raise PFError, "Interface name too long: '%s'" % ifname
-
-        d = open(self.dev, "w")
-        try:
-            ioctl(d, DIOCSETSTATUSIF, pi.asBuffer())
-        except IOError, (e, s):
-            if e == EINVAL:
-                raise PFError, "Not a valid interface name: '%s'" % ifname
-            raise
-        d.close()
+        pi = pfioc_if(ifname=ifname)
+        with open(self.dev, 'w') as d:
+            try:
+                ioctl(d, DIOCSETSTATUSIF, pi.asBuffer())
+            except IOError, (e, s):
+                if e == EINVAL:
+                    raise PFError("Not a valid interface name: '%s'" % ifname)
+                raise
 
     def get_status(self):
-        """Return a PFStatus object containing the internal PF statistics.
-
-        Raise IOError if the ioctl() request fails.
-        """
+        """Return a PFStatus object containing the internal PF statistics."""
         s = pf_status()
-
-        d = open(self.dev, "w")
-        ioctl(d, DIOCGETSTATUS, s)
-        d.close()
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCGETSTATUS, s.asBuffer())
 
         return PFStatus(s)
 
     def clear_status(self):
-        """Clear the internal packet filter statistics.
-
-        Raise IOError if the ioctl() request fails.
-        """
-        d = open(self.dev, "w")
-        ioctl(d, DIOCCLRSTATUS)
-        d.close()
-
+        """Clear the internal packet filter statistics."""
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCCLRSTATUS)
 
     def get_states(self):
-        """Retrieve the state table entries.
+        """Retrieve Packet Filter's state table entries.
 
         Return a tuple of PFState objects representing the states currently
-        tracked by PF. Raise IOError if the ioctl() request fails.
+        tracked by PF.
         """
         ps = pfioc_states()
 
-        d = open(self.dev, "w")
-        ioctl(d, DIOCGETSTATES, ps.asBuffer())
-        ps_num = ps.ps_len / sizeof(pfsync_state)
-        ps_states = (pfsync_state * ps_num)()
-
-        if ps_num:
-            ps.ps_states = addressof(ps_states)
+        with open(self.dev, 'w') as d:
             ioctl(d, DIOCGETSTATES, ps.asBuffer())
+            ps_num = ps.ps_len / sizeof(pfsync_state)
+            ps_states = (pfsync_state * ps_num)()
 
-        d.close()
+            if ps_num:
+                ps.ps_states = addressof(ps_states)
+                ioctl(d, DIOCGETSTATES, ps.asBuffer())
 
         return tuple([PFState(s) for s in ps_states])
 
-    def clear_states(self, ifname=None):
+    def clear_states(self, ifname=""):
         """Clear all states.
 
         If an interface name is provided, only states for that interface will
         be cleared. Return the number of cleared states.
-        Raise IOError if the ioctl() request fails.
         """
-        if not ifname:
-            ifname = ""
-        elif not isinstance(ifname, str):
-            raise TypeError, "'ifname' must be a string"
+        psk = pfioc_state_kill(psk_ifname=ifname)
 
-        try:
-            psk = pfioc_state_kill(psk_ifname=ifname)
-        except ValueError:
-            raise ValueError, "Interface name too long: '%s'" % ifname
-
-        d = open(self.dev, "w")
-        ioctl(d, DIOCCLRSTATES, psk.asBuffer())
-        d.close()
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCCLRSTATES, psk.asBuffer())
 
         return psk.psk_af
 
-    def kill_states(self, af=AF_UNSPEC, proto=None, src=None, dst=None, ifname=None):
+    def kill_states(self, af=AF_UNSPEC, proto=0, src=None, dst=None, ifname="",
+                    label=""):
         """Clear states matching the specified arguments.
 
-        Return the number of killed states.
+        States can be secified by address family, layer-4 protocol, source and
+        destination addresses, interface name. Return the number of killed
+        states.
         """
-        if not isinstance(af, int):
-            raise TypeError, "'af' must be a string"
-
-        if not proto:
-            proto = 0
-        elif not isinstance(proto, int):
-            raise TypeError, "'proto' must be an integer"
-
-        if not ifname:
-            ifname = ""
-        elif not isinstance(ifname, str):
-            raise TypeError, "'ifname' must be an integer"
-
-        try:
-            psk = pfioc_state_kill(psk_af=af,
-                                   psk_proto=proto,
-                                   psk_ifname=ifname)
-        except ValueError:
-            raise
-
-        if isinstance(src, PFRuleAddr):
+        psk = pfioc_state_kill(psk_af=af, psk_proto=proto, psk_ifname=ifname,
+                               psk_label=label)
+        if src:
             psk.psk_src = src._to_struct()
-        elif src is not None:
-            raise ValueError, "'src' must be a PFRuleAddr instance"
-
-        if isinstance(dst, PFRuleAddr):
+        if dst:
             psk.psk_dst = dst._to_struct()
-        elif dst is not None:
-            raise ValueError, "'dst' must be a PFRuleAddr instance"
 
-        d = open(self.dev, "w")
-        ioctl(d, DIOCKILLSTATES, psk.asBuffer())
-        d.close()
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCKILLSTATES, psk.asBuffer())
 
-        return psk.psk_af
-
+        return psk.psk_killed
 
     def _get_pool(self, pr, dev):
         """Return the address pool for the specified rule."""
-        pool = PFPool(pr.rule.action, pr.rule.rpool)
+        pool = PFPool(pr.rule.action, pool=pr.rule.rpool)
         pp   = pfioc_pooladdr(ticket=pr.ticket, r_action=pr.rule.action,
                               r_num=pr.nr, anchor=pr.anchor)
         ioctl(dev, DIOCGETADDRS, pp.asBuffer())
@@ -523,7 +330,7 @@ class PacketFilter:
         for nr in range(pp.nr):
             pp.nr = nr
             ioctl(dev, DIOCGETADDR, pp.asBuffer())
-            pool.append(PFRuleAddr(pf_rule_addr(addr=pp.addr.addr), pr.rule.af))
+            pool.append(PFAddr(pp.addr.addr, af=pr.rule.af))
 
         return pool
 
@@ -538,8 +345,7 @@ class PacketFilter:
         pr = pfioc_rule(anchor=path)
         rules = {}
 
-        for rs in (PF_RULESET_FILTER, PF_RULESET_SCRUB, PF_RULESET_NAT,
-                   PF_RULESET_RDR, PF_RULESET_BINAT):
+        for rs in actions.keys():
             rules[rs] = []
 
             pr.rule.action = actions[rs]
@@ -548,13 +354,17 @@ class PacketFilter:
             for nr in range(pr.nr):
                 pr.nr = nr
                 ioctl(dev, DIOCGETRULE, pr.asBuffer())
+
                 if pr.anchor_call:
-                    #r = PFRuleset(pr.anchor_call, pr.rule)
-                    r = PFRuleset(pr.anchor_call.split("/")[-1], pr.rule)
-                    p = "/".join(filter(None, (path, r.name)))
-                    r.rules = self._get_rules(p, dev)
+                    name = os.path.basename(pr.anchor_call)
+                    if name == '*':
+                        r = PFRuleset(pr.anchor_call, pr.rule)
+                    else:
+                        r = PFRuleset(name, pr.rule)
+                        r._rules = self._get_rules(pr.anchor_call, dev)
                 else:
                     r = PFRule(pr.rule)
+
                 r.rpool = self._get_pool(pr, dev)
                 rules[rs].append(r)
 
@@ -565,83 +375,299 @@ class PacketFilter:
 
         'path' is the name of the anchor to retrieve rules from.
         """
-        if not isinstance(path, str):
-            raise TypeError, "'path' must be a string"
+        rs = PFRuleset(os.path.basename(path))
 
-        d = open(self.dev, "r")
-        rs = PFRuleset(path.split("/")[-1])
-        rs.rules = self._get_rules(path, d)
-        d.close()
+        with open(self.dev, 'r') as d:
+            rs._rules = self._get_rules(path, d)
 
         return rs
 
-    def load_ruleset(self, ruleset, path="", rs_num=None):
+    def load_ruleset(self, ruleset, path="", rs_type=None):
         """Load the given ruleset.
 
-        'path' is the name of the anchor where to load rules; 'rs_num' is a
-        single constant or a tuple of constants specifying which types of rules
-        should be loaded (e.g. PF_RULESET_FILTER, PF_RULESET_NAT, etc.).
+        'ruleset' must be a PFRuleset object; 'path' is the name of the anchor
+        where to load rules; 'rs_type' is one, or a tuple of, PF_RULESET_*
+        constants: if omitted, all ruleset types will be loaded.
         """
         if not isinstance(ruleset, PFRuleset):
             raise TypeError, "'ruleset' must be a PFRuleset instance"
 
-        if not isinstance(path, str):
+        if not isinstance(path, basestring):
             raise TypeError, "'path' must be a string"
 
-        if isinstance(rs_num, int):
-            rs_num = (rs_num, )
-        elif rs_num is None:
-            rs_num = (PF_RULESET_NAT, PF_RULESET_BINAT, PF_RULESET_RDR,
-                      PF_RULESET_SCRUB, PF_RULESET_FILTER)
-        elif not isinstance(rs_num, tuple):
-            raise TypeError, "'rs_num' must be a tuple or an integer"
+        if isinstance(rs_type, int):
+            rs_type = (rs_type, )
+        elif rs_type is None:
+            rs_type = (PF_RULESET_NAT, PF_RULESET_BINAT, PF_RULESET_RDR,
+                       PF_RULESET_SCRUB, PF_RULESET_FILTER)
+        elif not isinstance(rs_type, tuple):
+            raise TypeError, "'rs_type' must be an integer or a tuple"
 
         pt = pfioc_trans()
-        array = (pfioc_trans_e * len(rs_num))()
+        array = (pfioc_trans_e * len(rs_type))()
 
-        for a, n in zip(array, rs_num):
-            a.rs_num = n
+        for a, t in zip(array, rs_type):
+            a.rs_num = t
             a.anchor = path
 
-        pt.size  = len(rs_num)
+        pt.size  = len(rs_type)
         pt.esize = sizeof(pfioc_trans_e)
         pt.array = addressof(array)
 
-        d = open(self.dev, "w")
-        ioctl(d, DIOCXBEGIN, pt.asBuffer())
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCXBEGIN, pt.asBuffer())
 
-        try:
-            for a in array:
-                for rule in ruleset.rules[a.rs_num]:
-                    pp = pfioc_pooladdr()
-                    pr = pfioc_rule()
+            try:
+                for a in array:
+                    for rule in ruleset.get_rules(a.rs_num):
+                        pp = pfioc_pooladdr()
+                        pr = pfioc_rule()
 
-                    ioctl(d, DIOCBEGINADDRS, pp.asBuffer())
+                        ioctl(d, DIOCBEGINADDRS, pp.asBuffer())
 
-                    pr.ticket = a.ticket
-                    pr.pool_ticket = pp.ticket
-                    pr.rule = rule._to_struct()
-                    pr.anchor = path
+                        pr.ticket = a.ticket
+                        pr.pool_ticket = pp.ticket
+                        pr.rule = rule._to_struct()
+                        pr.anchor = path
 
-                    if isinstance(rule, PFRuleset):
-                        pr.anchor_call = rule.name
+                        if isinstance(rule, PFRuleset):
+                            pr.anchor_call = os.path.join(path, rule.name)
 
-                    if rule.rpool:
-                        pr.rule.rpool = rule.rpool._to_struct()
-                        for addr in rule.rpool.addrs:
-                            pp.addr.addr = addr._to_struct().addr
-                            ioctl(d, DIOCADDADDR, pp.asBuffer())
+                        if rule.rpool:
+                            pr.rule.rpool = rule.rpool._to_struct()
+                            for addr in rule.rpool.get_addrs():
+                                pp.addr.addr = addr._to_struct()
+                                ioctl(d, DIOCADDADDR, pp.asBuffer())
 
-                    ioctl(d, DIOCADDRULE, pr.asBuffer())
+                        ioctl(d, DIOCADDRULE, pr.asBuffer())
 
-                    if isinstance(rule, PFRuleset):
-                        p = "/".join(filter(None, (path, rule.name)))
-                        self.load_ruleset(rule, p, rs_num)
-        except IOError, (e, s):
-            ioctl(d, DIOCXROLLBACK, pt.asBuffer())
-            raise PFError, "Failed to load ruleset: %s" % s
+                        if isinstance(rule, PFRuleset):
+                            self.load_ruleset(rule, pr.anchor_call, rs_type)
+            except IOError, (e, s):
+                ioctl(d, DIOCXROLLBACK, pt.asBuffer())
+                raise PFError, "Failed to load ruleset: %s" % s
+            else:
+                ioctl(d, DIOCXCOMMIT, pt.asBuffer())
 
-        ioctl(d, DIOCXCOMMIT, pt.asBuffer())
+    def add_tables(self, *tables):
+        """Create one or more tables.
 
-        d.close()
+        'tables' must be PFTable objects. Return the number of tables created.
+        """
+        io = pfioc_table()
 
+        buffer = (pfr_table * len(tables))(*[t._to_struct() for t in tables])
+        io.pfrio_buffer = addressof(buffer)
+        io.pfrio_esize = sizeof(pfr_table)
+        io.pfrio_size = len(tables)
+
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCRADDTABLES, io.asBuffer())
+
+        return io.pfrio_nadd
+
+    def clear_tables(self, filter=None):
+        """Clear all tables.
+
+        'filter' is a PFTable object that allows you to specify the attributes
+        of the tables to delete. Return the number of tables deleted.
+        """
+        io = pfioc_table()
+
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCRCLRTABLES, io.asBuffer())
+
+        return io.pfrio_ndel
+
+    def del_tables(self, *tables):
+        """Delete one or more tables.
+
+        'tables' must be PFTable objects. Return the number of tables deleted.
+        """
+        io = pfioc_table()
+
+        buffer = (pfr_table * len(tables))(*[t._to_struct() for t in tables])
+        io.pfrio_buffer = addressof(buffer)
+        io.pfrio_esize = sizeof(pfr_table)
+        io.pfrio_size = len(tables)
+
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCRDELTABLES, io.asBuffer())
+
+        return io.pfrio_ndel
+
+    def get_tables(self, filter=None, buf_size=10):
+        """Get the list of all tables.
+
+        'filter' is a PFTable object that allows you to specify the attributes
+        of the tables to retrieve. Return a list of PFTable objects containing
+        the currently-loaded tables.
+        """
+        io = pfioc_table()
+
+        if filter is not None:
+            io.pfrio_table = filter._to_struct()
+
+        with open(self.dev, 'w') as d:
+            while True:
+                buffer = (pfr_table * buf_size)()
+                io.pfrio_buffer = addressof(buffer)
+                io.pfrio_esize = sizeof(pfr_table)
+                io.pfrio_size = buf_size
+
+                ioctl(d, DIOCRGETTABLES, io.asBuffer())
+
+                if io.pfrio_size > buf_size:
+                    buf_size = io.pfrio_size
+                else:
+                    break
+
+        return [PFTable(t) for t in buffer[:io.pfrio_size]]
+
+    def add_addrs(self, table, *addrs):
+        """Add one or more addresses to a table.
+
+        'table' can be either a PFTable instance or a string containing the
+        table name; 'addrs' can be either PFTableAddr instances or strings.
+        Return the number of addresses effectively added.
+        """
+        if isinstance(table, PFTable):
+            table = table.name
+        elif not isinstance(table, basestring):
+            raise TypeError, "'table' must be a PFTable instance or a string"
+
+        _addrs = []
+        for addr in addrs:
+            if isinstance(addr, PFTableAddr):
+                _addrs.append(addr)
+            elif isinstance(addr, basestring):
+                _addrs.append(PFTableAddr(addr))
+            else:
+                raise TypeError, "'addrs' must be strings or PFTableAddr"
+
+        io = pfioc_table()
+
+        buffer = (pfr_addr * len(addrs))(*[a._to_struct() for a in _addrs])
+        io.pfrio_buffer = addressof(buffer)
+        io.pfrio_table.pfrt_name = table
+        io.pfrio_esize = sizeof(pfr_addr)
+        io.pfrio_size = len(addrs)
+
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCRADDADDRS, io.asBuffer())
+
+        return io.pfrio_nadd
+
+    def clear_addrs(self, table):
+        """Clear all addresses in the specified table.
+
+        Return the number of addresses removed.
+        """
+        if isinstance(table, PFTable):
+            table = table.name
+        elif not isinstance(table, str):
+            raise TypeError, "'table' must be a PFTable instance or a string"
+
+        io = pfioc_table()
+        io.pfrio_table.pfrt_name = table
+
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCRCLRADDRS, io.asBuffer())
+
+    def del_addrs(self, table, *addrs):
+        """Delete one or more addresses from the specified table.
+
+        'table' can be either a PFTable instance or a string containing the
+        table name; 'addrs' can be either PFTableAddr instances or strings.
+        Return the number of addresses deleted.
+        """
+        if isinstance(table, PFTable):
+            table = table.name
+        elif not isinstance(table, basestring):
+            raise TypeError, "'table' must be a PFTable instance or a string"
+
+        _addrs = []
+        for addr in addrs:
+            if isinstance(addr, PFTableAddr):
+                _addrs.append(addr)
+            elif isinstance(addr, basestring):
+                _addrs.append(PFTableAddr(addr))
+            else:
+                raise TypeError, "'addrs' must be strings or PFTableAddr"
+
+        io = pfioc_table()
+
+        buffer = (pfr_addr * len(addrs))(*[a._to_struct() for a in _addrs])
+        io.pfrio_buffer = addressof(buffer)
+        io.pfrio_table.pfrt_name = table
+        io.pfrio_esize = sizeof(pfr_addr)
+        io.pfrio_size = len(addrs)
+
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCRDELADDRS, io.asBuffer())
+
+        return io.pfrio_ndel
+
+    def set_addrs(self, table, *addrs):
+        """Replace the content of a table.
+
+        'table' can be either a PFTable instance or a string containing the
+        table name; 'addrs' can be either PFTableAddr instances or strings.
+        Return a tuple containing the number of addresses deleted, added and
+        changed.
+        """
+        if isinstance(table, PFTable):
+            table = table.name
+        elif not isinstance(table, basestring):
+            raise TypeError, "'table' must be a PFTable instance or a string"
+
+        _addrs = []
+        for addr in addrs:
+            if isinstance(addr, PFTableAddr):
+                _addrs.append(addr)
+            elif isinstance(addr, basestring):
+                _addrs.append(PFTableAddr(addr))
+            else:
+                raise TypeError, "'addrs' must be strings or PFTableAddr"
+
+        io = pfioc_table()
+
+        buffer = (pfr_addr * len(addrs))(*[a._to_struct() for a in _addrs])
+        io.pfrio_buffer = addressof(buffer)
+        io.pfrio_table.pfrt_name = table
+        io.pfrio_esize = sizeof(pfr_addr)
+        io.pfrio_size = len(addrs)
+
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCRSETADDRS, io.asBuffer())
+
+        return (io.pfrio_ndel, io.pfrio_nadd, io.pfrio_nchange)
+
+    def get_addrs(self, table, buf_size=10):
+        """Get all the addresses of the specified table.
+
+        'table' can be either a PFTable instance or a string containing the
+        table name. Return a list of PFTableAddr objects.
+        """
+        if isinstance(table, PFTable):
+            table = table.name
+        elif not isinstance(table, basestring):
+            raise TypeError, "'table' must be a PFTable instance or a string"
+
+        io = pfioc_table()
+        io.pfrio_table.pfrt_name = table
+        with open(self.dev, 'w') as d:
+            while True:
+                buffer = (pfr_addr * buf_size)()
+                io.pfrio_buffer = addressof(buffer)
+                io.pfrio_esize = sizeof(pfr_addr)
+                io.pfrio_size = buf_size
+
+                ioctl(d, DIOCRGETADDRS, io.asBuffer())
+
+                if io.pfrio_size > buf_size:
+                    buf_size = io.pfrio_size
+                else:
+                    break
+
+        return [PFTableAddr(a) for a in buffer[:io.pfrio_size]]
