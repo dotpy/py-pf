@@ -103,6 +103,40 @@ DIOCSETHOSTID    = _IOWR('D', 86, c_uint32)
 #DIOCKILLSRCNODES = _IOWR('D', 91, pfioc_src_node_kill)
 
 
+# Dictionaries for mapping strings to constants ################################
+dbg_levels  = {"none":            PF_DEBUG_NONE,
+               "urgent":          PF_DEBUG_URGENT,
+               "misc":            PF_DEBUG_MISC,
+               "loud":            PF_DEBUG_NOISY}
+
+pf_limits   = {"states":          PF_LIMIT_STATES,
+               "src-nodes":       PF_LIMIT_SRC_NODES,
+               "frags":           PF_LIMIT_FRAGS,
+               "tables":          PF_LIMIT_TABLES,
+               "table-entries":   PF_LIMIT_TABLE_ENTRIES}
+
+pf_timeouts = {"tcp.first":       PFTM_TCP_FIRST_PACKET,
+               "tcp.opening":     PFTM_TCP_OPENING,
+               "tcp.established": PFTM_TCP_ESTABLISHED,
+               "tcp.closing":     PFTM_TCP_CLOSING,
+               "tcp.finwait":     PFTM_TCP_FIN_WAIT,
+               "tcp.closed":      PFTM_TCP_CLOSED,
+               "tcp.tsdiff":      PFTM_TS_DIFF,
+               "udp.first":       PFTM_UDP_FIRST_PACKET,
+               "udp.single":      PFTM_UDP_SINGLE,
+               "udp.multiple":    PFTM_UDP_MULTIPLE,
+               "icmp.first":      PFTM_ICMP_FIRST_PACKET,
+               "icmp.error":      PFTM_ICMP_ERROR_REPLY,
+               "other.first":     PFTM_OTHER_FIRST_PACKET,
+               "other.single":    PFTM_OTHER_SINGLE,
+               "other.multiple":  PFTM_OTHER_MULTIPLE,
+               "frag":            PFTM_FRAG,
+               "interval":        PFTM_INTERVAL,
+               "adaptive.start":  PFTM_ADAPTIVE_START,
+               "adaptive.end":    PFTM_ADAPTIVE_END,
+               "src.track":       PFTM_SRC_NODE}
+
+
 # PacketFilter class ###########################################################
 class PacketFilter:
     """Class representing the kernel's packet filtering subsystem.
@@ -166,8 +200,14 @@ class PacketFilter:
     def set_debug(self, level):
         """Set the debug level.
 
-        'level' must be one of the PF_DEBUG_* constants.
+        The debug level can be either one of the PF_DEBUG_* constants or a
+        string.
         """
+        if level in dbg_levels.keys():
+            level = dbg_levels[level]
+        elif level not in dbg_levels.values():
+            raise ValueError("Not a valid debug level: '%s'" % level)
+
         with open(self.dev, 'w') as d:
             ioctl(d, DIOCSETDEBUG, c_uint32(level))
 
@@ -183,14 +223,20 @@ class PacketFilter:
     def get_limit(self, limit=None):
         """Return the hard limits on the memory pools used by Packet Filter.
 
-        'limit' must be one of the PF_LIMIT_* constants. Return the value of the
-        requested limit (UINT_MAX means unlimited) or, if called with no
-        arguments, a tuple containing all the available limits.
+        'limit' can be either one of the PF_LIMIT_* constants or a string;
+        return the value of the requested limit (UINT_MAX means unlimited) or,
+        if called with no arguments, a dictionary containing all the available
+        limits.
         """
         if limit is None:
-            return tuple([self.get_limit(l) for l in range(PF_LIMIT_MAX)])
+            return dict([(k, self.get_limit(k)) for k in pf_limits.keys()])
+        elif limit in pf_limits.keys():
+            limit = pf_limits[limit]
+        elif limit not in pf_limits.values():
+            raise ValueError("Not a valid limit: '%s'" % limit)
 
         pl = pfioc_limit(index=limit)
+
         with open(self.dev, 'r') as d:
             ioctl(d, DIOCGETLIMIT, pl.asBuffer())
 
@@ -199,11 +245,17 @@ class PacketFilter:
     def set_limit(self, limit, value):
         """Set hard limits on the memory pools used by Packet Filter.
 
-        'limit' must be one of the PF_LIMIT_* constants; a 'value' of UINT_MAX
-        means unlimited. Raise PFError if the current pool size exceeds the
-        requested hard limit.
+        'limit' can be either one of the PF_LIMIT_* constants or a string; a
+        'value' of UINT_MAX means unlimited. Raise PFError if the current pool
+        size exceeds the requested hard limit.
         """
+        if limit in pf_limits.keys():
+            limit = pf_limits[limit]
+        elif limit not in pf_limits.values():
+            raise ValueError("Not a valid limit: '%s'" % limit)
+
         pl = pfioc_limit(index=limit, limit=value)
+
         with open(self.dev, 'w') as d:
             try:
                 ioctl(d, DIOCSETLIMIT, pl.asBuffer())
@@ -213,14 +265,18 @@ class PacketFilter:
                 raise
 
     def get_timeout(self, timeout=None):
-        """Return the state timeout of 'timeout'.
+        """Return the configured timeout values for states.
 
-        'timeout' must be one of the PFTM_* constants; return the value of the
-        requested timeout or, if called with no arguments, a tuple containing
-        all the available timeouts.
+        'timeout' can be either one of the PFTM_* constants or a string; return
+        the value of the requested timeout or, if called with no arguments, a
+        dictionary containing all the available timeouts.
         """
         if timeout is None:
-            return tuple([self.get_timeout(t) for t in range(PFTM_MAX)])
+            return dict([(k, self.get_timeout(k)) for k in pf_timeouts.keys()])
+        elif timeout in pf_timeouts.keys():
+            timeout = pf_timeouts[timeout]
+        elif timeout not in pf_timeouts.values():
+            raise ValueError("Not a valid timeout: '%s'" % timeout)
 
         pt = pfioc_tm(timeout=timeout)
         with open(self.dev, 'r') as d:
@@ -229,12 +285,18 @@ class PacketFilter:
         return pt.seconds
 
     def set_timeout(self, timeout, value):
-        """Set the state timeout of 'timeout' to 'value'.
+        """Set the timeout 'value' for a specific state.
 
-        'timeout' must be one of the PFTM_* constants; return the old value of
-        the specified timeout.
+        'timeout' can be either one of the PFTM_* constants or a string; return
+        the old value of the specified timeout.
         """
+        if timeout in pf_timeouts.keys():
+            timeout = pf_timeouts[timeout]
+        elif timeout not in pf_timeouts.values():
+            raise ValueError("Not a valid timeout: '%s'" % timeout)
+
         pt = pfioc_tm(timeout=timeout, seconds=value)
+
         with open(self.dev, 'w') as d:
             ioctl(d, DIOCSETTIMEOUT, pt.asBuffer())
 
@@ -305,8 +367,8 @@ class PacketFilter:
         """Clear states matching the specified arguments.
 
         States can be secified by address family, layer-4 protocol, source and
-        destination addresses, interface name. Return the number of killed
-        states.
+        destination addresses, interface name and label. Return the number of
+        killed states.
         """
         psk = pfioc_state_kill(psk_af=af, psk_proto=proto, psk_ifname=ifname,
                                psk_label=label)

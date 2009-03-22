@@ -64,6 +64,13 @@ PF_STATE_NORMAL         = 0x1
 PF_STATE_MODULATE       = 0x2
 PF_STATE_SYNPROXY       = 0x3
 
+# Routing options
+PF_NOPFROUTE            = 0
+PF_FASTROUTE            = 1
+PF_ROUTETO              = 2
+PF_DUPTO                = 3
+PF_REPLYTO              = 4
+
 # State keys
 PF_SK_WIRE              = 0
 PF_SK_STACK             = 1
@@ -99,6 +106,16 @@ PFI_AFLAG_NOALIAS       = 0x08
 PF_INOUT                = 0
 PF_IN                   = 1
 PF_OUT                  = 2
+
+# Flush options
+PF_FLUSH                = 0x01
+PF_FLUSH_GLOBAL         = 0x02
+
+
+# TOS bits
+IPTOS_LOWDELAY          = 0x10
+IPTOS_THROUGHPUT        = 0x08
+IPTOS_RELIABILITY       = 0x04
 
 # NAT ports range
 PF_NAT_PROXY_PORT_LOW   = 50001

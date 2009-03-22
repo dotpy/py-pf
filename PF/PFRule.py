@@ -86,7 +86,7 @@ class PFOp:
 
         try:
             n2 = int(m.group("n2"))
-        except TypeError:
+        except ValueError:
             if self.op in (PF_OP_EQ, PF_OP_NE):
                 n2 = self._str_to_num(m.group("n2"))
             else:
@@ -215,8 +215,8 @@ class PFPort(PFOp):
 
     def __init__(self, num=None, proto=None, op=PF_OP_NONE):
         """Check arguments and initialize instance attributes."""
-        PFOp.__init__(self, num, op)
         self.proto = proto
+        PFOp.__init__(self, num, op)
 
     def _num_to_str(self, n):
         """Convert a numeric port to a service name."""
@@ -248,7 +248,8 @@ class PFAddr:
         elif isinstance(addr, basestring):
             self._from_string(addr)
         elif addr is None:
-            self._from_struct(pf_addr_wrap())
+            t = (kw["type"] if kw.has_key("type") else PF_ADDR_ADDRMASK)
+            self._from_struct(pf_addr_wrap(type=t))
         else:
             raise TypeError("'addr' must be a pf_addr_wrap or a string")
 
@@ -548,6 +549,8 @@ class PFPool:
             p = kw.pop("pool")
         except KeyError:
             p = pf_pool()
+            if self.id == PF_NAT:
+                p.proxy_port = (PF_NAT_PROXY_PORT_LOW, PF_NAT_PROXY_PORT_HIGH)
         self._from_struct(p)
 
         self._from_kw(**kw)
@@ -626,7 +629,7 @@ class PFPool:
         return s
 
     def append(self, *addrs):
-        """Append a new address to the pool."""
+        """Append one or more addresses to the pool."""
         for addr in addrs:
             if isinstance(addr, PFAddr):
                 self._addrs.append(addr)
@@ -634,7 +637,7 @@ class PFPool:
                 self._addrs.append(PFAddr(addr))
 
     def remove(self, *addrs):
-        """Remove an address from the pool."""
+        """Remove one or more addresses from the pool."""
         for addr in addrs:
             if isinstance(addr, PFAddr):
                 self._addr.remove(addr)

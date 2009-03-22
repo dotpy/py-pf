@@ -80,8 +80,8 @@ class PFStateKey:
         memmove(a[0].v.a.mask.v6, c_char_p(mask), len(mask))
         memmove(a[1].v.a.mask.v6, c_char_p(mask), len(mask))
 
-        self.addr     = (PFAddr(a[0], self.af), PFAddr(a[1], self.af))
-        self.port     = map(ntohs, k.port)
+        self.addr = (PFAddr(a[0], self.af), PFAddr(a[1], self.af))
+        self.port = (PFPort(ntohs(k.port[0])), PFPort(ntohs(k.port[1])))
 
 
 class PFState:
@@ -95,8 +95,7 @@ class PFState:
 
     def _from_struct(self, s):
         """Initialize class attributes from a pfsync_state structure."""
-        id               = (unpack(">II", string_at(addressof(s.id),
-                                                    sizeof(s.id))))
+        id = unpack('>II', string_at(addressof(s.id), sizeof(s.id)))
         self.id          = id[0] << 32 | id[1]
         self.ifname      = s.ifname
 
@@ -106,16 +105,15 @@ class PFState:
 
         self.rule        = ntohl(s.rule)
         self.anchor      = ntohl(s.anchor)
-        self.nat_rule    = s.nat_rule
+        self.nat_rule    = ntohl(s.nat_rule)
         self.creation    = ntohl(s.creation)
         self.expire      = ntohl(s.expire)
 
-        p                = (unpack(">IIII", string_at(addressof(s.packets),
-                                                      sizeof(s.packets))))
+        p = unpack('>IIII', string_at(addressof(s.packets), sizeof(s.packets)))
         self.packets     = ((p[0] << 32 | p[1]), (p[2] << 32 | p[3]))
-        b                = (unpack(">IIII", string_at(addressof(s.bytes),
-                                                      sizeof(s.bytes))))
+        b = unpack('>IIII', string_at(addressof(s.bytes), sizeof(s.bytes)))
         self.bytes       = ((b[0] << 32 | b[1]), (b[2] << 32 | b[3]))
+
         self.creatorid   = ntohl(s.creatorid) & 0xffffffff
         self.af          = s.af
         self.proto       = s.proto
@@ -132,42 +130,44 @@ class PFState:
             self.sk          = PFStateKey(s.key[PF_SK_STACK], s.af)
             self.nk          = PFStateKey(s.key[PF_SK_WIRE], s.af)
             if self.proto in (IPPROTO_ICMP, IPPROTO_ICMPV6):
-                self.sk.port[0] = self.nk.port[0]
+                self.sk.port = (self.nk.port[0], self.sk.port[1])
         else:
             self.src         = PFStatePeer(s.dst)
             self.dst         = PFStatePeer(s.src)
             self.sk          = PFStateKey(s.key[PF_SK_WIRE], s.af)
             self.nk          = PFStateKey(s.key[PF_SK_STACK], s.af)
             if self.proto in (IPPROTO_ICMP, IPPROTO_ICMPV6):
-                self.sk.port[1] = self.nk.port[1]
+                self.sk.port = (self.sk.port[0], self.nk.port[1])
 
     def _to_string(self):
         """Return a string representing the state."""
         sk, nk   = self.sk, self.nk
+        sp       = (sk.port[0].num[0], sk.port[1].num[0])
+        np       = (nk.port[0].num[0], nk.port[1].num[0])
         src, dst = self.src, self.dst
 
         s = "%s " % self.ifname
         s += "%s " % (getprotobynumber(self.proto) or self.proto)
 
         s += "%s" % nk.addr[1]
-        if nk.port[1]:
-            s += (":%u" if self.af == AF_INET else "[%u]") % nk.port[1]
+        if np[1]:
+            s += (":%u" if self.af == AF_INET else "[%u]") % np[1]
 
-        if (nk.addr[1] != sk.addr[1]) or (nk.port[1] != sk.port[1]):
+        if (nk.addr[1] != sk.addr[1]) or (np[1] != sp[1]):
             s += " (%s" % sk.addr[1]
-            if sk.port[1]:
-                s += (":%u)" if self.af == AF_INET else "[%u])") % sk.port[1]
+            if sp[1]:
+                s += (":%u)" if self.af == AF_INET else "[%u])") % sp[1]
 
         s += (" -> " if self.direction == PF_OUT else " <- ")
 
         s += "%s" % nk.addr[0]
-        if nk.port[0]:
-            s += (":%u" if self.af == AF_INET else "[%u]") % nk.port[0]
+        if np[0]:
+            s += (":%u" if self.af == AF_INET else "[%u]") % np[0]
 
-        if (nk.addr[0] != sk.addr[0]) or (nk.port[0] != sk.port[0]):
+        if (nk.addr[0] != sk.addr[0]) or (np[0] != sp[0]):
             s += " (%s" % sk.addr[0]
-            if sk.port[0]:
-                s += (":%u)" if self.af == AF_INET else "[%u])") % sk.port[0]
+            if sp[0]:
+                s += (":%u)" if self.af == AF_INET else "[%u])") % sp[0]
 
         s += "       "
         if self.proto == IPPROTO_TCP:

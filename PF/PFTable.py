@@ -21,7 +21,7 @@ class PFTableAddr:
         """Check argument and initialize class attributes."""
         if isinstance(addr, pfr_addr):
             self._from_struct(addr)
-        elif isinstance(addr, str):
+        elif isinstance(addr, basestring):
             self._from_string(addr)
         elif addr is None:
             self._from_struct(pfr_addr())
