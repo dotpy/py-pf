@@ -1,3 +1,18 @@
+Mar 22, 2009 -- version 0.0.3
+
+    - Added the PFAddr and PFPort classes, representing addresses and ports
+      respectively. The PFRuleAddr class is now a simple container for a
+      PFAddr/PFPort pair.
+    - Added table support trough the PFTable and PFTableAddr classes; the
+      apropriate methods for managing tables have been added to the PacketFilter
+      class.
+    - The PFPoolAddr class has been removed: now addresses in PFPools are
+      PFAddr instances.
+    - Re-written the PFState class and created the PFStateKey class in
+      accordance with the changes to PF's state handling.
+    - Added the PFUid and PFGid classes, representing user and group IDs.
+
+
 Jul 06, 2008 -- version 0.0.2
 
     - Added support for loading rulesets, by means of the
@@ -13,4 +28,3 @@ Jul 06, 2008 -- version 0.0.2
 Apr 26, 2008 -- version 0.0.1
 
     - Initial release
-

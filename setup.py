@@ -17,8 +17,8 @@ from distutils.core import setup
 
 
 __author__ = "Daniele Mazzocchio <danix@kernel-panic.it>"
-__version__ = "0.0.1"
-__date__    = "Apr 26, 2008"
+__version__ = "0.0.3"
+__date__    = "Mar 22, 2009"
 
 
 # Python versions prior 2.2.3 don't support 'classifiers' and 'download_url'
@@ -34,6 +34,9 @@ setup(name         = "py-PF",
       url          = "http://www.kernel-panic.it/software/py-pf/",
       download_url = "http://sourceforge.net/projects/py-pf/",
       packages     = ["PF"],
+      requires     = ["ctypes"],
+      license      = "OSI-Approved :: BSD License",
+      description  = "Pure-Python module for managing OpenBSD's Packet Filter",
       classifiers  = ["Development status :: 2 - Pre-Alpha",
                       "Intended Audience :: System Administrators",
                       "License :: OSI-Approved Open Source :: BSD License",

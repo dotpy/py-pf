@@ -6,7 +6,7 @@ add powerful and flexible scripting capabilities to PF, making integration with
 third-party software (like IDS, web-based configuration interfaces or custom
 management scripts) much easier.
 
-The only prerequisite is Python (2.3 or newer), which is available through
+The only prerequisite is Python (2.5 or newer), which is available through
 OpenBSD's packages and ports system (see http://www.openbsd.org/faq/faq15.html).
 
 
@@ -18,11 +18,11 @@ following steps to get the module installed:
 
   * unpack the tarball:
 
-      $ tar -zxvf py-PF-0.0.1.tar.gz
+      $ tar -zxvf py-PF-0.0.3.tar.gz
 
   * move to the newly created directory:
 
-      $ cd ./py-PF-0.0.1/
+      $ cd ./py-PF-0.0.3/
 
   * run the install script (as root) by typing:
 
