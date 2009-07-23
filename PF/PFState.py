@@ -34,14 +34,14 @@ states    = {PFUDPS_NO_TRAFFIC: "NO_TRAFFIC",
 
 
 # PFStatePeer class ############################################################
-class PFStatePeer:
+class PFStatePeer(PFObject):
     """Represents a connection endpoint."""
+
+    _struct_type = pfsync_state_peer
 
     def __init__(self, peer):
         """Check argument and initialize class attributes."""
-        if not isinstance(peer, pfsync_state_peer):
-            raise TypeError("'peer' must be a pfsync_state_peer structure")
-        self._from_struct(peer)
+        super(PFStatePeer, self).__init__(peer)
 
     def _from_struct(self, p):
         """Initialize class attributes from a pfsync_state_peer structure."""
@@ -59,17 +59,15 @@ class PFStatePeer:
         self.pfss_ts_mod = p.scrub.pfss_ts_mod
 
 
-class PFStateKey:
+class PFStateKey(PFObject):
     """Represents a state key."""
+
+    _struct_type = pfsync_state_key
 
     def __init__(self, key, af):
         """Check argument and initialize class attributes."""
         self.af = af
-
-        if not isinstance(key, pfsync_state_key):
-            raise TypeError("'state' must be a pfsync_state_key structure")
-
-        self._from_struct(key)
+        super(PFStateKey, self).__init__(key)
 
     def _from_struct(self, k):
         """Initialize class attributes from a pfsync_state_key structure."""
@@ -84,14 +82,14 @@ class PFStateKey:
         self.port = (PFPort(ntohs(k.port[0])), PFPort(ntohs(k.port[1])))
 
 
-class PFState:
+class PFState(PFObject):
     """Represents an entry in Packet Filter's state table."""
+
+    _struct_type = pfsync_state
 
     def __init__(self, state):
         """Check argument and initialize class attributes."""
-        if not isinstance(state, pfsync_state):
-            raise TypeError("'state' must be a pfsync_state structure")
-        self._from_struct(state)
+        super(PFState, self).__init__(state)
 
     def _from_struct(self, s):
         """Initialize class attributes from a pfsync_state structure."""
@@ -185,7 +183,7 @@ class PFState:
         elif (self.proto == IPPROTO_UDP  and
               src.state < PFUDPS_NSTATES and dst.state < PFUDPS_NSTATES):
             s += "%s:%s" % (states[src.state], states[dst.state])
-        elif (self.proto != IPPROTO_ICMP and
+        elif (self.proto not in (IPPROTO_ICMP, IPPROTO_ICMPV6) and
               src.state < PFOTHERS_NSTATES and dst.state < PFOTHERS_NSTATES):
             s += "%s:%s" % (states[src.state], states[dst.state])
         else:
@@ -208,6 +206,8 @@ class PFState:
             s += ", rule %u" % self.rule
         if self.state_flags & PFSTATE_SLOPPY:
             s += ", sloppy"
+        if self.state_flags & PFSTATE_PFLOW:
+            s += ", pflow"
         if self.sync_flags & PFSYNC_FLAG_SRCNODE:
             s += ", source-track"
         if self.sync_flags & PFSYNC_FLAG_NATSRCNODE:
@@ -219,5 +219,3 @@ class PFState:
 
         return s
 
-    def __str__(self):
-        return self._to_string()

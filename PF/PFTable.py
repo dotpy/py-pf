@@ -14,21 +14,16 @@ __all__ = ['PFTableAddr',
 
 
 # PFTableAddr class ############################################################
-class PFTableAddr:
+class PFTableAddr(PFObject):
     """Represents an address in a PF table."""
 
+    _struct_type = pfr_addr
     def __init__(self, addr=None, **kw):
         """Check argument and initialize class attributes."""
-        if isinstance(addr, pfr_addr):
-            self._from_struct(addr)
-        elif isinstance(addr, basestring):
-            self._from_string(addr)
-        elif addr is None:
-            self._from_struct(pfr_addr())
-        else:
-            raise TypeError, "'addr' must be a pfr_addr structure or a string"
+        if addr is None:
+            addr = pfr_addr()
 
-        self._from_kw(**kw)
+        super(PFTableAddr, self).__init__(addr, **kw)
 
     def _from_struct(self, a):
         """Initialize class attributes from a pfr_addr structure"""
@@ -65,14 +60,6 @@ class PFTableAddr:
 
         self.fback = 0
 
-    def _from_kw(self, **kw):
-        """Initalize a new instance by specifying its attributes values."""
-        for k, v in kw.iteritems():
-            if hasattr(self, k):
-                setattr(self, k, v)
-            else:
-                raise TypeError, "Unexpected keyword argument '%s'" % k
-
     def _to_struct(self):
         """Convert this instance to a pfr_addr structure."""
         a = pfr_addr()
@@ -102,27 +89,32 @@ class PFTableAddr:
 
         return s
 
-    def __str__(self):
-        return self._to_string()
-
 
 # PFTable class ################################################################
-class PFTable:
+class PFTable(PFObject):
     """Represents a PF table."""
 
-    def __init__(self, table=None, **kw):
-        """Check argument and initialize class attributes."""
-        if isinstance(table, pfr_table):
-            self._from_struct(table)
-        elif isinstance(table, basestring):
-            self._from_struct(pfr_table())
-            self.name = table
-        elif table is None:
-            self._from_struct(pfr_table())
-        else:
-            raise TypeError, "'table' must be a pfr_table structure or a string"
+    _struct_type = pfr_table
 
-        self._from_kw(**kw)
+    def __init__(self, table=None, *addrs, **kw):
+        """Check argument and initialize class attributes."""
+        if table is None:
+            table = pfr_table()
+        elif isinstance(table, basestring):
+            table = pfr_table(pfrt_name=table)
+
+        self._addrs = []
+        for addr in addrs:
+            if not isinstance(addr, PFTableAddr):
+                addr = PFTableAddr(addr)
+            self._addrs.append(addr)
+
+        super(PFTable, self).__init__(table, **kw)
+
+    @property
+    def addrs(self):
+        """Return a tuple containing the address in the table."""
+        return tuple(self._addrs)
 
     def _from_struct(self, t):
         """Initialize class attributes from a pfr_table structure"""
@@ -130,14 +122,6 @@ class PFTable:
         self.name   = t.pfrt_name
         self.flags  = t.pfrt_flags
         self.fback  = t.pfrt_fback
-
-    def _from_kw(self, **kw):
-        """Initalize a new instance by specifying its attributes values."""
-        for k, v in kw.iteritems():
-            if hasattr(self, k):
-                setattr(self, k, v)
-            else:
-                raise TypeError, "Unexpected keyword argument '%s'" % k
 
     def _to_struct(self):
         """Convert this instance to a pfr_table structure."""
@@ -162,6 +146,3 @@ class PFTable:
         s += " %s" % self.name
 
         return s
-
-    def __str__(self):
-        return self._to_string()

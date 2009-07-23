@@ -91,6 +91,7 @@ class pf_status(BufferStructure):
                 ("since",             c_uint32),
                 ("debug",             c_uint32),
                 ("hostid",            c_uint32),
+                ("reass",             c_uint32),
                 ("ifname",            c_char * IFNAMSIZ),
                 ("pf_chksum",         c_uint8 * PF_MD5_DIGEST_LENGTH)]
 
@@ -332,6 +333,8 @@ class pf_rule(Structure):
                 ("anchor_relative",   c_uint8),
                 ("anchor_wildcard",   c_uint8),
                 ("flush",             c_uint8),
+                ("scrub_flags",       c_uint16),
+                ("pad2",              c_uint8 * 2),
                 ("divert",            _divert)]
 
 class pfioc_rule(BufferStructure):

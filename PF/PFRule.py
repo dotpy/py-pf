@@ -45,25 +45,21 @@ def azero(seq):
 
 
 # PFUid and PFGid classes ######################################################
-class PFOp:
+class PFOp(PFObject):
     """Class representing a generic comparison operation."""
 
     def __init__(self, num=None, op=PF_OP_NONE):
         """Check arguments and initialize instance attributes."""
         self.op = op
 
-        if num is None:
+        if isinstance(num, basestring) or isinstance(num, Structure):
+            super(PFOp, self).__init__(num)
+        elif num is None:
             self.num = (0, 0)
         elif isinstance(num, int):
             self.num = (num, 0)
         elif isinstance(num, tuple):
             self.num = num
-        elif isinstance(num, basestring):
-            self._from_string(num)
-        elif isinstance(num, Structure):
-            self._from_struct(num)
-        else:
-            raise TypeError("Wrong type for 'num': %s" % type(num))
 
     def _from_struct(self, operation):
         """Initalize a new instance from a structure."""
@@ -116,7 +112,7 @@ class PFOp:
                 pass
 
         if self.op == PF_OP_NONE:
-            return "%s" % (n1 or "")
+            return "%s" % n1
         elif self.op == PF_OP_IRG:
             return "%s >< %s" % (n1, n2)
         elif self.op == PF_OP_XRG:
@@ -144,9 +140,6 @@ class PFOp:
         """Convert a string to a numeric operand."""
         raise NotImplementedError
 
-    def __str__(self):
-        return self._to_string()
-
     def __eq__(self, operation):
         return (self.num == operation.num and self.op == operation.op)
 
@@ -157,9 +150,11 @@ class PFOp:
 class PFUid(PFOp):
     """Class representing a user ID."""
 
+    _struct_type = pf_rule_uid
+
     def __init__(self, num=None, op=PF_OP_NONE):
         """Check arguments and initialize instance attributes."""
-        PFOp.__init__(self, num, op)
+        super(PFUid, self).__init__(num, op)
 
     def _from_struct(self, uid):
         """Initialize a new instance from a pf_rule_uid structure."""
@@ -184,9 +179,12 @@ class PFUid(PFOp):
 
 class PFGid(PFOp):
     """Class representing a group ID."""
+
+    _struct_type = pf_rule_gid
+
     def __init__(self, num=None, op=PF_OP_NONE):
         """Check arguments and initialize instance attributes."""
-        PFOp.__init__(self, num, op)
+        super(PFGid, self).__init__(num, op)
 
     def _from_struct(self, gid):
         """Initialize a new instance from a pf_rule_gid structure."""
@@ -216,7 +214,7 @@ class PFPort(PFOp):
     def __init__(self, num=None, proto=None, op=PF_OP_NONE):
         """Check arguments and initialize instance attributes."""
         self.proto = proto
-        PFOp.__init__(self, num, op)
+        super(PFPort, self).__init__(num, op)
 
     def _num_to_str(self, n):
         """Convert a numeric port to a service name."""
@@ -236,24 +234,20 @@ class PFPort(PFOp):
 
 
 # PFAddr class #################################################################
-class PFAddr:
+class PFAddr(PFObject):
     """Class representing an address."""
+
+    _struct_type = pf_addr_wrap
 
     def __init__(self, addr=None, af=AF_UNSPEC, **kw):
         """Check arguments and initialize instance attributes."""
         self.af = af
 
-        if isinstance(addr, pf_addr_wrap):
-            self._from_struct(addr)
-        elif isinstance(addr, basestring):
-            self._from_string(addr)
-        elif addr is None:
+        if addr is None:
             t = (kw["type"] if kw.has_key("type") else PF_ADDR_ADDRMASK)
-            self._from_struct(pf_addr_wrap(type=t))
-        else:
-            raise TypeError("'addr' must be a pf_addr_wrap or a string")
+            addr = pf_addr_wrap(type=t)
 
-        self._from_kw(**kw)
+        super(PFAddr, self).__init__(addr, **kw)
 
     def _from_struct(self, a):
         """Initalize a new instance from a pf_addr_wrap structure."""
@@ -367,16 +361,8 @@ class PFAddr:
             else:
                 self.mask = ctonm(128, self.af)
 
-    def _from_kw(self, **kw):
-        """Initalize a new instance by specifying its attributes values."""
-        for k, v in kw.iteritems():
-            if hasattr(self, k):
-                setattr(self, k, v)
-            else:
-                raise ValueError("Unexpected keyword argument '%s'" % k)
-
     def _to_struct(self):
-        """Convert this instance to a pf_rule_addr structure."""
+        """Convert this instance to a pf_addr_wrap structure."""
         a = pf_addr_wrap()
         a.type = self.type
 
@@ -447,9 +433,6 @@ class PFAddr:
         """Return true if this address matches any host."""
         return (self.type == PF_ADDR_ADDRMASK and self.addr is None)
 
-    def __str__(self):
-        return self._to_string()
-
     def __eq__(self, a):
         if (self.type != a.type or self.af != a.af):
             return False
@@ -475,32 +458,22 @@ class PFAddr:
 
 
 # PFRuleAddr class #############################################################
-class PFRuleAddr:
+class PFRuleAddr(PFObject):
     """Class representing an address/port pair."""
+
+    _struct_type = pf_rule_addr
 
     def __init__(self, addr=None, port=None, neg=False, **kw):
         """Check arguments and initialize instance attributes."""
-        if isinstance(addr, pf_rule_addr):
+        if isinstance(addr, self._struct_type):
             self.addr = PFAddr(addr.addr, kw['af'])
             self.port = PFPort(tuple(map(ntohs, addr.port)),
                                kw['proto'], addr.port_op)
             self.neg  = bool(addr.neg)
-            return
-        elif isinstance(addr, PFAddr):
-            self.addr = addr
-        elif addr is None:
-            self.addr = PFAddr()
         else:
-            raise TypeError("'addr' must be a PFAddr instance")
-
-        if isinstance(port, PFPort):
-            self.port = port
-        elif port is None:
-            self.port = PFPort()
-        else:
-            raise TypeError("'port' must be a PFPort instance")
-
-        self.neg = bool(neg)
+            self.addr = (PFAddr() if (addr is None) else addr)
+            self.port = (PFPort() if (port is None) else port)
+            self.neg  = bool(neg)
 
     def _to_struct(self):
         """Convert this instance to a pf_rule_addr structure."""
@@ -522,9 +495,6 @@ class PFRuleAddr:
 
         return s
 
-    def __str__(self):
-        return self._to_string()
-
     def __eq__(self, a):
         return (self.addr == a.addr and
                 self.port == a.port and
@@ -535,15 +505,14 @@ class PFRuleAddr:
 
 
 # PFPool class #################################################################
-class PFPool:
+class PFPool(PFObject):
     """Class representing an address pool."""
+
+    _struct_type = pf_pool
 
     def __init__(self, id, *addrs, **kw):
         """Check arguments and initialize instance attributes."""
-        if isinstance(id, int):
-            self.id = id
-        else:
-            raise TypeError("'id' must be an integer")
+        self.id = id
 
         try:
             p = kw.pop("pool")
@@ -551,11 +520,11 @@ class PFPool:
             p = pf_pool()
             if self.id == PF_NAT:
                 p.proxy_port = (PF_NAT_PROXY_PORT_LOW, PF_NAT_PROXY_PORT_HIGH)
-        self._from_struct(p)
 
-        self._from_kw(**kw)
+        super(PFPool, self).__init__(p, **kw)
+
         self._addrs = []
-        self.append(*addrs)
+        self._append(*addrs)
 
     def _from_struct(self, p):
         """Initalize a new instance from a pf_pool structure."""
@@ -563,14 +532,6 @@ class PFPool:
         self.tblidx     = p.tblidx
         self.proxy_port = PFPort(tuple(p.proxy_port), op=p.port_op)
         self.opts       = p.opts
-
-    def _from_kw(self, **kw):
-        """Initalize a new instance by specifying its attributes values."""
-        for k, v in kw.iteritems():
-            if hasattr(self, k):
-                setattr(self, k, v)
-            else:
-                raise ValueError("Unexpected keyword argument '%s'" % k)
 
     def _to_struct(self):
         """Convert a PFPool object to a pf_pool structure."""
@@ -588,7 +549,7 @@ class PFPool:
 
         addrs = []
         for a in self._addrs:
-            if self.id == PF_PASS and a.addr.addr:
+            if self.id in (PF_PASS, PF_MATCH) and a.addr.addr:
                 addrs.append("(%s %s)" % (a.ifname, a))
             else:
                 addrs.append("%s" % a)
@@ -628,50 +589,30 @@ class PFPool:
 
         return s
 
-    def append(self, *addrs):
+    def _append(self, *addrs):
         """Append one or more addresses to the pool."""
         for addr in addrs:
-            if isinstance(addr, PFAddr):
-                self._addrs.append(addr)
-            else:
-                self._addrs.append(PFAddr(addr))
+            if not isinstance(addr, PFAddr):
+                addr = PFAddr(addr)
+            self._addrs.append(addr)
 
-    def remove(self, *addrs):
-        """Remove one or more addresses from the pool."""
-        for addr in addrs:
-            if isinstance(addr, PFAddr):
-                self._addr.remove(addr)
-            else:
-                self._addrs.remove(PFAddr(addr))
-
-    def get_addrs(self):
+    @property
+    def addrs(self):
         """Return the list of the addresses in the pool."""
         return self._addrs
 
-    def clear(self):
-        """Remove all addresses from the pool."""
-        self._addrs = []
-
-    def __str__(self):
-        return self._to_string()
-
 
 # PFRule class #################################################################
-class PFRule:
+class PFRule(PFObject):
     """Class representing a Packet Filter rule."""
+
+    _struct_type = pf_rule
 
     def __init__(self, rule=None, **kw):
         """Check arguments and initialize instance attributes."""
-        if isinstance(rule, pf_rule):
-            self._from_struct(rule)
-        elif isinstance(rule, basestring):
-            self._from_string(rule)
-        elif rule is None:
-            self._from_struct(pf_rule(rtableid=-1))
-        else:
-            raise TypeError("'rule' must be a pf_rule structure or a string")
-
-        self._from_kw(**kw)
+        if rule is None:
+            rule = pf_rule(rtableid=-1)
+        super(PFRule, self).__init__(rule, **kw)
 
     def _from_struct(self, r):
         """Initalize a new instance from a pf_rule structure."""
@@ -737,22 +678,12 @@ class PFRule:
         self.rt                = r.rt
         self.return_ttl        = r.return_ttl
         self.tos               = r.tos
+        self.set_tos           = r.set_tos
         self.anchor_relative   = r.anchor_relative
         self.anchor_wildcard   = r.anchor_wildcard
         self.flush             = r.flush
+        self.scrub_flags       = r.scrub_flags
         ###self.divert            = 
-
-    def _from_string(self, r):
-        """Initalize a new instance from a string."""
-        raise NotImplementedError
-
-    def _from_kw(self, **kw):
-        """Initalize a new instance by specifying its attributes values."""
-        for k, v in kw.iteritems():
-            if hasattr(self, k):
-                setattr(self, k, v)
-            else:
-                raise TypeError("Unexpected keyword argument '%s'" % k)
 
     def _to_struct(self):
         """Convert a PFRule object to a pf_rule structure."""
@@ -816,9 +747,11 @@ class PFRule:
         r.rt                = self.rt
         r.return_ttl        = self.return_ttl
         r.tos               = self.tos
+        r.set_tos           = self.set_tos
         r.anchor_relative   = self.anchor_relative
         r.anchor_wildcard   = self.anchor_wildcard
         r.flush             = self.flush
+        r.scrub_flags       = self.scrub_flags
         ###r.divert            = 
 
         return r
@@ -826,12 +759,12 @@ class PFRule:
     def _to_string(self):
         """Return the string representation of the rule."""
         pf_actions = ("pass", "block", "scrub", "no scrub", "nat", "no nat",
-                      "binat", "no binat", "rdr", "no rdr")
+                      "binat", "no binat", "rdr", "no rdr", "", "", "match")
         pf_anchors = ("anchor", "anchor", "anchor", "anchor", "nat-anchor",
                       "nat-anchor", "binat-anchor", "binat-anchor",
                       "rdr-anchor", "rdr-anchor")
 
-        if self.action > PF_NORDR:
+        if self.action > PF_MATCH:
             s = "action(%d)" % self.action
         elif isinstance(self, PFRuleset):
             if self.name:
@@ -930,9 +863,11 @@ class PFRule:
 
         if self.flags or self.flagset:
             s += " flags %s/%s" % (self.flags, self.flagset)
-        elif self.action == PF_PASS and self.proto in (0, IPPROTO_TCP) and   \
-             not (self.rule_flag & PFRULE_FRAGMENT) and self.keep_state and  \
-             not isinstance(self, PFRuleset):
+        elif self.action in (PF_PASS, PF_MATCH)     and \
+             self.proto in (0, IPPROTO_TCP)         and \
+             not (self.rule_flag & PFRULE_FRAGMENT) and \
+             not isinstance(self, PFRuleset)        and \
+             self.keep_state:
             s += " flags any"
 
         if self.type:
@@ -964,30 +899,25 @@ class PFRule:
 
         if self.rule_flag & PFRULE_FRAGMENT:
             s += " fragment"
-        if self.rule_flag & PFRULE_NODF:
-            s += " no-df"
-        if self.rule_flag & PFRULE_RANDOMID:
-            s += " random-id"
 
-        if self.min_ttl:
-            s += " min-ttl %d" % self.min_ttl
-        if self.max_mss:
-            s += " max-mss %d" % self.max_mss
-        if self.rule_flag & PFRULE_SET_TOS:
-            s += " set-tos 0x%2.2x" % self.set_tos
+        if self.scrub_flags >= PFSTATE_NODF or self.min_ttl or self.max_mss:
+            opts = []
+            if self.scrub_flags & PFSTATE_NODF:
+                opts.append("no-df")
+            if self.scrub_flags & PFSTATE_RANDOMID:
+                opts.append("random-id")
+            if self.min_ttl:
+                opts.append("min-ttl %d" % self.min_ttl)
+            if self.scrub_flags & PFSTATE_SETTOS:
+                opts.append("set-tos 0x%2.2x" % self.set_tos)
+            if self.scrub_flags & PFSTATE_SCRUB_TCP:
+                opts.append("reassemble tcp")
+            if self.max_mss:
+                opts.append("max_mss %d" % self.max_mss)
+            s += " scrub (%s)" % " ".join(opts)
+
         if self.allow_opts:
             s += " allow-opts"
-
-        if self.action == PF_SCRUB:
-            if self.rule_flag & PFRULE_REASSEMBLE_TCP:
-                s += " reassemble tcp"
-            if self.rule_flag & PFRULE_FRAGDROP:
-                s += " fragment drop-ovl"
-            elif self.rule_flag & PFRULE_FRAGCROP:
-                s += " fragment crop"
-            else:
-                s += " fragment reassemble"
-
         if self.label:
             s += " label \"%s\"" % self.label
 
@@ -1014,9 +944,6 @@ class PFRule:
 
         return s
 
-    def __str__(self):
-        return self._to_string()
-
 
 # PFRuleset class ##############################################################
 class PFRuleset(PFRule):
@@ -1024,45 +951,25 @@ class PFRuleset(PFRule):
 
     def __init__(self, name="", rule=None, **kw):
         """Check arguments and initialize instance attributes."""
-        PFRule.__init__(self, rule, **kw)
-
-        if not isinstance(name, basestring):
-            raise TypeError("'name' must be a string")
+        super(PFRuleset, self).__init__(rule, **kw)
         self.name = name
-
-        self._rules = {PF_RULESET_NAT:    [],
+        self._rules = {PF_RULESET_TABLE:  [],
+                       PF_RULESET_NAT:    [],
                        PF_RULESET_RDR:    [],
                        PF_RULESET_BINAT:  [],
-                       PF_RULESET_SCRUB:  [],
                        PF_RULESET_FILTER: []}
 
     def append(self, action, *rules):
         """Append one or more rules to the rules of type 'action'."""
-        if rules != filter(lambda r: isinstance(r, PFRule), rules):
-            raise TypeError("'rules' must be PFRule or PFRuleset instances")
+        self._rules[action].extend(rules)
 
-        try:
-            self._rules[action].extend(rules)
-        except KeyError:
-            raise ValueError("'action' must be a PF_RULESET_* constant")
-
-    def insert(self, action, index, *rules):
-        """Insert one or more rules of type 'action' before 'index'."""
-        if rules != filter(lambda r: isinstance(r, PFRule), rules):
-            raise TypeError("'rules' must be PFRule or PFRuleset instances")
-
-        try:
-            self._rules[action] = self._rules[action][:index] + \
-                                  list(rules) + self._rules[action][index:]
-        except KeyError:
-            raise ValueError("'action' must be a PF_RULESET_* constant")
+    def insert(self, action, index, rule):
+        """Insert a 'rule' of type 'action' before 'index'."""
+        self._rules[action].insert(index, rule)
 
     def remove(self, action, index=-1):
         """Remove the rule of type 'action' at 'index'."""
-        try:
-            self._rules[action].pop(index)
-        except KeyError:
-            raise ValueError("'action' must be a PF_RULESET_* constant")
+        self._rules[action].pop(index)
 
     def clear(self, action=None):
         """Clear all rules or rules of type 'action' (if specified)."""
@@ -1070,29 +977,17 @@ class PFRuleset(PFRule):
             for a in self._rules.keys():
                 self.clear(a)
         else:
-            try:
-                self._rules[action] = []
-            except KeyError:
-                raise ValueError("'action' must be a PF_RULESET_* constant")
+            self._rules[action] = []
 
-    def get_rules(self, action=None):
-        """Return the rules in this ruleset.
-
-        If an 'action' is specified, return the list of rules for that action;
-        otherwise, return a dictionary containing all the rules.
-        """
-        if action is None:
-            return self._rules
-
-        try:
-            return self._rules[action]
-        except KeyError:
-            raise ValueError("'action' must be a PF_RULESET_* constant")
+    @property
+    def rules(self):
+        """Return the rules in this ruleset as a dictionary."""
+        return self._rules
 
     def _to_string(self):
         """Return the string representation of the ruleset."""
         rulesets = (PF_RULESET_NAT, PF_RULESET_RDR, PF_RULESET_BINAT,
-                    PF_RULESET_SCRUB, PF_RULESET_FILTER)
+                    PF_RULESET_FILTER)
 
         return "\n".join([PFRule._to_string(rule) for r in rulesets
                                                   for rule in self._rules[r]])

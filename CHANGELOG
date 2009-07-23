@@ -1,3 +1,18 @@
+Jul 26, 2009 -- version 0.0.4
+
+    - Updated to OpenBSD-current; modifications include the removal of 'scrub'
+      rules and making some ioctl() transactional (set loginterface, set hostid,
+      set reassemble and set debug).
+    - Aggiornato a -current (es. rimozione scrub rules o rendere transzionali
+      alcune syscall.
+    - Added addresses to PFTable objects; this should make managing tables much
+      more user-friendly.
+    - Added the PF_RULESET_TABLE ruleset to PFRuleset; this allows loading
+      tables along with the other rules and doesn't require that the 'persist'
+      flag be set if the table is not yet referenced by any rule.
+    - Added the PacketFilter.set_reassembly() method.
+
+
 Mar 22, 2009 -- version 0.0.3
 
     - Added the PFAddr and PFPort classes, representing addresses and ports

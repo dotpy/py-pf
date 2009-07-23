@@ -1,7 +1,7 @@
 """Export constants shared by all classes of the module."""
 
 
-import sys
+from sys import maxint
 
 
 # Actions
@@ -16,16 +16,17 @@ PF_NOBINAT              = 7
 PF_RDR                  = 8
 PF_NORDR                = 9
 PF_SYNPROXY_DROP        = 10
+PF_DEFER                = 11
+PF_MATCH                = 12
 
 # PF ruleset types
-PF_RULESET_SCRUB        = 0
-PF_RULESET_FILTER       = 1
-PF_RULESET_NAT          = 2
-PF_RULESET_BINAT        = 3
-PF_RULESET_RDR          = 4
-PF_RULESET_MAX          = 5
-PF_RULESET_ALTQ         = 5
-PF_RULESET_TABLE        = 6
+PF_RULESET_FILTER       = 0
+PF_RULESET_NAT          = 1
+PF_RULESET_BINAT        = 2
+PF_RULESET_RDR          = 3
+PF_RULESET_MAX          = 4
+PF_RULESET_ALTQ         = PF_RULESET_MAX
+PF_RULESET_TABLE        = PF_RULESET_MAX + 1
 
 # PF rule flags
 PFRULE_DROP             = 0x0000
@@ -36,16 +37,11 @@ PFRULE_RETURN           = 0x0008
 PFRULE_NOSYNC           = 0x0010
 PFRULE_SRCTRACK         = 0x0020
 PFRULE_RULESRCTRACK     = 0x0040
-# PF scrub flags
-PFRULE_NODF             = 0x0100
-PFRULE_FRAGCROP         = 0x0200
-PFRULE_FRAGDROP         = 0x0400
-PFRULE_RANDOMID         = 0x0800
-PFRULE_REASSEMBLE_TCP   = 0x1000
-PFRULE_SET_TOS          = 0x2000
+
 # PF rule flags
 PFRULE_IFBOUND          = 0x00010000
 PFRULE_STATESLOPPY      = 0x00020000
+PFRULE_PFLOW            = 0x00040000
 
 # Port comparison operators
 PF_OP_NONE              = 0
@@ -80,6 +76,7 @@ PF_SK_BOTH              = 2
 PF_LOG                  = 0x01
 PF_LOG_ALL              = 0x02
 PF_LOG_SOCKET_LOOKUP    = 0x04
+PF_LOG_FORCE            = 0x08
 
 # Address types
 PF_ADDR_ADDRMASK        = 0
@@ -111,7 +108,6 @@ PF_OUT                  = 2
 PF_FLUSH                = 0x01
 PF_FLUSH_GLOBAL         = 0x02
 
-
 # TOS bits
 IPTOS_LOWDELAY          = 0x10
 IPTOS_THROUGHPUT        = 0x08
@@ -139,7 +135,7 @@ PF_DEBUG_MISC           = 2
 PF_DEBUG_NOISY          = 3
 
 # The 'unlimited' value for limits on the memory pools
-UINT_MAX                = sys.maxint * 2 + 1
+UINT_MAX                = maxint * 2 + 1
 
 # Limits
 PF_LIMIT_STATES         = 0
@@ -205,19 +201,23 @@ PFOTHERS_MULTIPLE       = 2
 PFOTHERS_NSTATES        = 3
 
 # Pfsync flags
-PFSYNC_FLAG_COMPRESS    = 0x01
-PFSYNC_FLAG_STALE       = 0x02
 PFSYNC_FLAG_SRCNODE     = 0x04
 PFSYNC_FLAG_NATSRCNODE  = 0x08
 
-# PF states sync flags
-PFSTATE_NOSYNC          = 0x01
-PFSTATE_FROMSYNC        = 0x02
-PFSTATE_STALE           = 0x04
 # PF states flags
-PFSTATE_ALLOWOPTS       = 0x01
-PFSTATE_SLOPPY          = 0x02
+PFSTATE_ALLOWOPTS       = 0x0001
+PFSTATE_SLOPPY          = 0x0002
+PFSTATE_PFLOW           = 0x0004
+PFSTATE_NOSYNC          = 0x0008
+PFSTATE_ACK             = 0x0010
+PFSTATE_NODF            = 0x0020
+PFSTATE_SETTOS          = 0x0040
+PFSTATE_RANDOMID        = 0x0080
+PFSTATE_SCRUB_TCP       = 0x0100
 
+# Reassembly flags
+PF_REASS_ENABLED        = 0x01
+PF_REASS_NODF           = 0x02
 
 # Table flags
 PFR_TFLAG_PERSIST       = 0x01
@@ -230,6 +230,15 @@ PFR_TFLAG_COUNTERS      = 0x40
 PFR_TFLAG_USRMASK       = 0x43
 PFR_TFLAG_SETMASK       = 0x3C
 PFR_TFLAG_ALLMASK       = 0x7F
+
+PFR_FLAG_ATOMIC         = 0x00000001
+PFR_FLAG_DUMMY          = 0x00000002
+PFR_FLAG_FEEDBACK       = 0x00000004
+PFR_FLAG_CLSTATS        = 0x00000008
+PFR_FLAG_ADDRSTOO       = 0x00000010
+PFR_FLAG_REPLACE        = 0x00000020
+PFR_FLAG_ALLRSETS       = 0x00000040
+PFR_FLAG_ALLMASK        = 0x0000007f
 
 
 # ICMP types
@@ -333,3 +342,4 @@ ICMP6_PARAMPROB_NEXTHEADER       = 1
 ICMP6_PARAMPROB_OPTION           = 2
 ND_REDIRECT_ONLINK               = 0
 ND_REDIRECT_ROUTER               = 1
+

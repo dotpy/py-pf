@@ -33,7 +33,7 @@ import os
 
 
 __author__  = "Daniele Mazzocchio <danix@kernel-panic.it>"
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 
 
 class PFError(Exception):
@@ -67,3 +67,4 @@ __all__ = ['PFError',
            'PacketFilter']
 
 __all__.extend(os._get_exports_list(PFConstants))
+

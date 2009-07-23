@@ -9,20 +9,21 @@ from socket import ntohl
 
 from PF._PFStruct import pf_status
 from PF.PFConstants import *
+from PF.PFUtils import PFObject
 
 
 __all__ = ['PFStatus']
 
 
 # PFStatus class ###############################################################
-class PFStatus:
+class PFStatus(PFObject):
     """Class representing the internal Packet Filter statistics and counters."""
+
+    _struct_type = pf_status
 
     def __init__(self, status):
         """Check argument and initialize class attributes."""
-        if not isinstance(status, pf_status):
-            raise TypeError("'status' must be a pf_status structure.")
-        self._from_struct(status)
+        super(PFStatus, self).__init__(status)
 
     def _from_struct(self, s):
         """Initialize class attributes from a pf_status structure."""
@@ -33,6 +34,7 @@ class PFStatus:
         self.src_nodes = s.src_nodes
         self.debug     = s.debug
         self.hostid    = ntohl(s.hostid) & 0xffffffff
+        self.reass     = s.reass
         self.pf_chksum = "0x" + "".join(["%02x" % b for b in s.pf_chksum])
 
         self.cnt       = {'match':                    s.counters[0],
@@ -137,5 +139,3 @@ class PFStatus:
 
         return s
 
-    def __str__(self):
-        return self._to_string()
