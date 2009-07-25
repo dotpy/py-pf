@@ -27,7 +27,8 @@ __all__ = ['pfioc_limit',
            'pfioc_trans',
            'pfr_addr',
            'pfr_table',
-           'pfioc_table']
+           'pfioc_table',
+           'pfr_tstats']
 
 
 # Constants ####################################################################
@@ -385,3 +386,13 @@ class pfioc_table(BufferStructure):
                 ("pfrio_nchange",     c_int),
                 ("pfrio_flags",       c_int),
                 ("pfrio_ticket",      c_uint32)]
+
+class pfr_tstats(Structure):
+    _fields_ = [("pfrts_t",           pfr_table),
+                ("pfrts_packets",     c_uint64 * PFR_OP_TABLE_MAX * PFR_DIR_MAX),
+                ("pfrts_bytes",       c_uint64 * PFR_OP_TABLE_MAX * PFR_DIR_MAX),
+                ("pfrts_match",       c_uint64),
+                ("pfrts_nomatch",     c_uint64),
+                ("pfrts_tzero",       c_long),
+                ("pfrts_cnt",         c_int),
+                ("pfrts_refcnt",      c_int * PFR_REFCNT_MAX)]

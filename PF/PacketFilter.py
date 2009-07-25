@@ -76,8 +76,8 @@ DIOCRCLRTABLES   = _IOWR('D', 60, pfioc_table)
 DIOCRADDTABLES   = _IOWR('D', 61, pfioc_table)
 DIOCRDELTABLES   = _IOWR('D', 62, pfioc_table)
 DIOCRGETTABLES   = _IOWR('D', 63, pfioc_table)
-#DIOCRGETTSTATS   = _IOWR('D', 64, pfioc_table)
-#DIOCRCLRTSTATS   = _IOWR('D', 65, pfioc_table)
+DIOCRGETTSTATS   = _IOWR('D', 64, pfioc_table)
+DIOCRCLRTSTATS   = _IOWR('D', 65, pfioc_table)
 DIOCRCLRADDRS    = _IOWR('D', 66, pfioc_table)
 DIOCRADDADDRS    = _IOWR('D', 67, pfioc_table)
 DIOCRDELADDRS    = _IOWR('D', 68, pfioc_table)
@@ -646,7 +646,7 @@ class PacketFilter:
         """Get the list of all tables.
 
         'filter' is a PFTable object that allows you to specify the attributes
-        of the tables to retrieve. Return a list of PFTable objects containing
+        of the tables to retrieve. Return a tuple of PFTable objects containing
         the currently-loaded tables.
         """
         io = pfioc_table()
@@ -825,3 +825,55 @@ class PacketFilter:
                     break
 
         return tuple([PFTableAddr(a) for a in buffer[:io.pfrio_size]])
+
+    def get_tstats(self, filter=None, buf_size=10):
+        """Get statistics information for one or more tables.
+
+        'filter' is a PFTable object that allows you to specify the attributes
+        of the tables to retrieve statistics for. Return a tuple of PFTStats
+        objects.
+        """
+        io = pfioc_table()
+
+        if filter is not None:
+            io.pfrio_table = pfr_table(pfrt_name=filter.name,
+                                       pfrt_anchor=filter.anchor)
+
+        with open(self.dev, 'w') as d:
+            while True:
+                buffer = (pfr_tstats * buf_size)()
+                io.pfrio_buffer = addressof(buffer)
+                io.pfrio_esize = sizeof(pfr_tstats)
+                io.pfrio_size = buf_size
+
+                ioctl(d, DIOCRGETTSTATS, io.asBuffer())
+
+                if io.pfrio_size > buf_size:
+                    buf_size = io.pfrio_size
+                else:
+                    break
+
+        stats = []
+        for t in buffer[:io.pfrio_size]:
+            if t.pfrts_tzero:
+                stats.append(PFTStats(t))
+
+        return stats
+
+    def clear_tstats(self, *tables):
+        """ """
+        io = pfioc_table()
+
+        buffer = (pfr_table * len(tables))()
+        for (t, b) in zip(tables, buffer):
+            b.pfrt_name = t.name
+            b.pfrt_anchor = t.anchor
+
+        io.pfrio_buffer = addressof(buffer)
+        io.pfrio_esize = sizeof(pfr_table)
+        io.pfrio_size = len(tables)
+
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCRCLRTSTATS, io.asBuffer())
+
+        return io.pfrio_nadd

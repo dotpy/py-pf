@@ -242,3 +242,14 @@ def test_get_addrs():
     if len(pf.get_addrs(t)) != 2:
         raise TestError
 
+@test("PacketFilter.get_tstats()")
+def test_get_tstats():
+    stats = pf.get_tstats(PFTable(anchor="test_rs"))
+    if len(stats) != 2:
+        raise TestError
+
+@test("PacketFilter.clear_tstats()")
+def test_clear_tstats():
+    if pf.clear_tstats(PFTable("test3", anchor="test_rs")) != 1:
+        raise TestError
+

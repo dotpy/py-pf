@@ -3,6 +3,7 @@
 from socket import *
 from ctypes import *
 import re
+import time
 
 from PF.PFConstants import *
 from PF._PFStruct import *
@@ -10,7 +11,8 @@ from PF.PFUtils import *
 
 
 __all__ = ['PFTableAddr',
-           'PFTable']
+           'PFTable',
+           'PFTStats']
 
 
 # PFTableAddr class ############################################################
@@ -18,6 +20,7 @@ class PFTableAddr(PFObject):
     """Represents an address in a PF table."""
 
     _struct_type = pfr_addr
+
     def __init__(self, addr=None, **kw):
         """Check argument and initialize class attributes."""
         if addr is None:
@@ -144,5 +147,48 @@ class PFTable(PFObject):
         s += ('h' if (self.flags & PFR_TFLAG_REFDANCHOR) else '-')
         s += ('C' if (self.flags & PFR_TFLAG_COUNTERS) else '-')
         s += " %s" % self.name
+
+        return s
+
+
+# PFTStats class ###############################################################
+class PFTStats(PFObject):
+    """ """
+
+    _struct_type = pfr_tstats
+
+    def __init__(self, tstats):
+        """ """
+        super(PFTStats, self).__init__(tstats)
+
+    def _from_struct(self, s):
+        """ """
+        self.table   = PFTable(s.pfrts_t)
+        self.packets = {"in":  tuple(s.pfrts_packets[PFR_DIR_IN]),
+                        "out": tuple(s.pfrts_packets[PFR_DIR_OUT])}
+        self.bytes   = {"in":  tuple(s.pfrts_bytes[PFR_DIR_IN]),
+                        "out": tuple(s.pfrts_bytes[PFR_DIR_OUT])}
+        self.cleared = s.pfrts_tzero
+        self.cnt     = s.pfrts_cnt
+        self.evalcnt = {"match":   s.pfrts_match,
+                        "nomatch": s.pfrts_nomatch}
+        self.refcnt  = {"rules":   s.pfrts_refcnt[PFR_REFCNT_RULE],
+                        "anchors": s.pfrts_refcnt[PFR_REFCNT_ANCHOR]}
+
+    def _to_string(self):
+        """ """
+        s  = "%s\n" % self.table
+        s += "\tAddresses:   %d\n" % self.cnt
+        s += "\tCleared:     %s\n" % time.ctime(self.cleared)
+        s += "\tReferences:  [ Anchors: %-18d " % self.refcnt["anchors"]
+        s += "Rules: %-18d ]\n" % self.refcnt["rules"]
+        s += "\tEvaluations: [ NoMatch: %-18d " % self.evalcnt["nomatch"]
+        s += "Match: %-18d ]\n" % self.evalcnt["match"]
+
+        pfr_ops = ("Block:", "Pass:", "XPass:")
+        for o, p, b in zip(pfr_ops, self.packets["in"], self.bytes["in"]):
+            s += "\tIn/%-6s    [ Packets: %-18d Bytes: %-18d ]\n" % (o, p, b)
+        for o, p, b in zip(pfr_ops, self.packets["out"], self.bytes["out"]):
+            s += "\tOut/%-6s   [ Packets: %-18d Bytes: %-18d ]\n" % (o, p, b)
 
         return s

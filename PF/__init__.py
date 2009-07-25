@@ -64,6 +64,7 @@ __all__ = ['PFError',
            'PFState',
            'PFTableAddr',
            'PFTable',
+           'PFTStats',
            'PacketFilter']
 
 __all__.extend(os._get_exports_list(PFConstants))

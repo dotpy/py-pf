@@ -240,6 +240,19 @@ PFR_FLAG_REPLACE        = 0x00000020
 PFR_FLAG_ALLRSETS       = 0x00000040
 PFR_FLAG_ALLMASK        = 0x0000007f
 
+PFR_DIR_IN              = 0
+PFR_DIR_OUT             = 1
+PFR_DIR_MAX             = 2
+
+PFR_OP_BLOCK            = 0
+PFR_OP_PASS             = 1
+PFR_OP_ADDR_MAX         = 2
+PFR_OP_TABLE_MAX        = 3
+
+PFR_REFCNT_RULE         = 0
+PFR_REFCNT_ANCHOR       = 1
+PFR_REFCNT_MAX          = 2
+
 
 # ICMP types
 ICMP_ECHO                        = 8
