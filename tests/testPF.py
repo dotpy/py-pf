@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+"""Some very basic tests for py-PF.
+
+Make sure you correctly set the configuration parameters.
+"""
+
+
 import time
 from socket import *
 from PF import *
