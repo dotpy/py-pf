@@ -8,6 +8,7 @@ Make sure you correctly set the configuration parameters.
 
 import time
 from socket import *
+
 from PF import *
 
 
@@ -57,6 +58,22 @@ def test_disable_altq():
 @test("PacketFilter.enable_altq()")
 def test_enable_altq():
     pf.enable_altq()
+
+@test("PacketFilter.clear_ifflags()")
+def test_clear_ifflags():
+    pf.clear_ifflags(LO_IF)
+
+@test("PacketFilter.clear_rules()")
+def test_clear_rules():
+    pf.clear_rules()
+
+@test("PacketFilter.clear_nat()")
+def test_clear_nat():
+    pf.clear_nat()
+
+@test("PacketFilter.set_ifflag()")
+def test_set_ifflag():
+    pf.set_ifflag(LO_IF, PFI_IFLAG_SKIP)
 
 @test("PacketFilter.set_debug()")
 def test_set_debug():
@@ -153,6 +170,17 @@ def test_load_ruleset():
                       ifname=EXT_IF,
                       src=PFRuleAddr(ext_if, neg=True),
                       rpool=PFPool(PF_NAT, ext_if))],
+          PF_RULESET_RDR:
+              [PFRule(action=PF_RDR,
+                      ifname=INT_IF,
+                      af=AF_INET,
+                      dst=PFRuleAddr(PFAddr(type=PF_ADDR_DYNIFTL,
+                                            af=AF_INET,
+                                            ifname=INT_IF,
+                                            mask="255.255.255.255"),
+                                     PFPort("www", IPPROTO_TCP)),
+                      rpool=PFPool(PF_RDR, "<test2>",
+                      opts=PF_POOL_ROUNDROBIN|PF_POOL_STICKYADDR))],
           PF_RULESET_FILTER:
               [PFRule(action=PF_DROP,
                       direction=PF_IN,
@@ -198,7 +226,7 @@ def test_get_ruleset():
 @test("PacketFilter.add_tables()")
 def test_add_tables():
     t = PFTable("test4", "192.168.23.34", "10.0.4.0/27", anchor="test_rs",
-                flags=PFR_TFLAG_PERSIST,)
+                flags=PFR_TFLAG_PERSIST)
     pf.add_tables(t)
 
 @test("PacketFilter.del_tables()")
@@ -208,7 +236,7 @@ def test_del_tables():
 
 @test("PacketFilter.clear_tables()")
 def test_clear_tables():
-    if pf.clear_tables(PFTable(anchor="test_rs")) != 1:
+    if pf.clear_tables(PFTable(anchor="test_rs")) != 2:
         raise TestError
 
 @test("PacketFilter.get_tables()")

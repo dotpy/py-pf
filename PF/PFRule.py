@@ -73,12 +73,9 @@ class PFOp(PFObject):
 
         m = re.compile(op_re).match(operation)
         if not m:
-            raise ValueError("Could not parse string: '%s'" % operation)
+            raise ValueError("Could not parse string: {0}".format(operation))
 
-        if not m.group("op"):
-            self.op = PF_OP_EQ
-        else:
-            self.op = pf_ops[m.group("op")]
+        self.op = pf_ops[m.group("op")] if m.group("op") else PF_OP_EQ
 
         try:
             n2 = int(m.group("n2"))
@@ -106,31 +103,20 @@ class PFOp(PFObject):
             return ""
 
         if self.op in (PF_OP_EQ, PF_OP_NE):
-            try:
-                n1 = self._num_to_str(n1)
-            except error:
-                pass
+            n1 = self._num_to_str(n1)
 
-        if self.op == PF_OP_NONE:
-            return "%s" % n1
-        elif self.op == PF_OP_IRG:
-            return "%s >< %s" % (n1, n2)
-        elif self.op == PF_OP_XRG:
-            return "%s <> %s" % (n1, n2)
-        elif self.op == PF_OP_EQ:
-            return "= %s" % n1
-        elif self.op == PF_OP_NE:
-            return "!= %s" % n1
-        elif self.op == PF_OP_LT:
-            return "< %s" % n1
-        elif self.op == PF_OP_LE:
-            return "<= %s" % n1
-        elif self.op == PF_OP_GT:
-            return "> %s" % n1
-        elif self.op == PF_OP_GE:
-            return ">= %s" % n1
-        elif self.op == PF_OP_RRG:
-            return "%s:%s" % (n1, n2)
+        s = {PF_OP_NONE: "{0}",
+             PF_OP_IRG:  "{0} >< {1}",
+             PF_OP_XRG:  "{0} <> {1}",
+             PF_OP_EQ:   "= {0}",
+             PF_OP_NE:   "!= {0}",
+             PF_OP_LT:   "< {0}",
+             PF_OP_LE:   "<= {0}",
+             PF_OP_GT:   "> {0}",
+             PF_OP_GE:   ">= {0}",
+             PF_OP_RRG:  "{0}:{1}"}[self.op]
+
+        return s.format(n1, n2)
 
     def _num_to_str(self, n):
         """Convert a numeric operand to a string."""
@@ -229,7 +215,7 @@ class PFPort(PFOp):
 
     def __eq__(self, p):
         return (self.num   == p.num and
-                self.op    == p.op   and
+                self.op    == p.op  and
                 self.proto == p.proto)
 
 
@@ -303,7 +289,7 @@ class PFAddr(PFObject):
 
         m = re.compile(addr_re).match(a)
         if not m:
-            raise ValueError("Could not parse address: '%s'" % a)
+            raise ValueError("Could not parse address: {0}".format(a))
 
         if m.group("nort"):
             self.type = PF_ADDR_NOROUTE
@@ -397,7 +383,7 @@ class PFAddr(PFObject):
     def _to_string(self):
         """Return the string representation of the address."""
         if self.type == PF_ADDR_DYNIFTL:
-            s = "(%s" % self.ifname
+            s = "({0.ifname}".format(self)
             if self.iflags & PFI_AFLAG_NETWORK:
                 s += ":network"
             if self.iflags & PFI_AFLAG_BROADCAST:
@@ -408,7 +394,7 @@ class PFAddr(PFObject):
                 s += ":0"
             s += ")"
         elif self.type == PF_ADDR_TABLE:
-            return "<%s>" % self.tblname
+            return "<{0.tblname}>".format(self)
         elif self.type == PF_ADDR_ADDRMASK:
             s = self.addr or "any"
         elif self.type == PF_ADDR_NOROUTE:
@@ -416,16 +402,16 @@ class PFAddr(PFObject):
         elif self.type == PF_ADDR_URPFFAILED:
             return "urpf-failed"
         elif self.type == PF_ADDR_RTLABEL:
-            return "route \"%s\"" % self.rtlabelname
+            return "route \"{0.rtlabelname}\"".format(self)
         elif self.type == PF_ADDR_RANGE:
-            s = "%s - %s" % self.addr
+            s = "{0.addr[0]} - {0.addr[1]}".format(self)
         else:
             return "?"
 
         if self.type != PF_ADDR_RANGE and self.mask:
             bits = nmtoc(self.mask, self.af)
             if not ((self.af == AF_INET and bits == 32) or (bits == 128)):
-                s += "/%i" % bits
+                s += "/{0:d}".format(bits)
 
         return s
 
@@ -471,8 +457,8 @@ class PFRuleAddr(PFObject):
                                kw['proto'], addr.port_op)
             self.neg  = bool(addr.neg)
         else:
-            self.addr = (PFAddr() if (addr is None) else addr)
-            self.port = (PFPort() if (port is None) else port)
+            self.addr = addr or PFAddr()
+            self.port = port or PFPort()
             self.neg  = bool(neg)
 
     def _to_struct(self):
@@ -488,8 +474,8 @@ class PFRuleAddr(PFObject):
 
     def _to_string(self):
         """Return the string representation of the address/port pair."""
-        s = ("! %s" if self.neg else "%s") % self.addr
-        p = "%s" % self.port
+        s = ("! {0.addr}" if self.neg else "{0.addr}").format(self)
+        p = "{0.port}".format(self)
         if p:
             s += (":" if self.port.op == PF_OP_NONE else " port ") + p
 
@@ -510,25 +496,27 @@ class PFPool(PFObject):
 
     _struct_type = pf_pool
 
-    def __init__(self, id, *addrs, **kw):
+    def __init__(self, id, pool, **kw):
         """Check arguments and initialize instance attributes."""
         self.id = id
 
-        try:
-            p = kw.pop("pool")
-        except KeyError:
-            p = pf_pool()
-            if self.id == PF_NAT:
+        if isinstance(pool, PFAddr):
+            self._af = pool.af
+            p = pf_pool(addr=pool._to_struct())
+            if self.id == PF_POOL_NAT:
                 p.proxy_port = (PF_NAT_PROXY_PORT_LOW, PF_NAT_PROXY_PORT_HIGH)
+        elif isinstance(pool, pf_pool):
+            self._af = kw.pop("af", AF_UNSPEC)
+            p = pool
 
         super(PFPool, self).__init__(p, **kw)
 
-        self._addrs = []
-        self._append(*addrs)
-
     def _from_struct(self, p):
         """Initalize a new instance from a pf_pool structure."""
-        self.key        = "0x%08x%08x%08x%08x" % tuple(p.key.key32[:])
+        self.addr       = PFAddr(p.addr, self._af)
+        self.key        = "{0:#010x}{1:08x}{2:08x}{3:08x}".format(*p.key.key32)
+        self.counter    = p.counter
+        self.ifname     = p.ifname
         self.tblidx     = p.tblidx
         self.proxy_port = PFPort(tuple(p.proxy_port), op=p.port_op)
         self.opts       = p.opts
@@ -537,39 +525,41 @@ class PFPool(PFObject):
         """Convert a PFPool object to a pf_pool structure."""
         p = pf_pool()
 
+        if self.addr._is_any():
+            p.addr = PFAddr(type=PF_ADDR_NONE)._to_struct()
+        else:
+            p.addr       = self.addr._to_struct()
+        p.ifname     = self.ifname
         p.proxy_port = self.proxy_port.num
-        p.port_op = self.proxy_port.op
-        p.opts = self.opts
+        p.port_op    = self.proxy_port.op
+        p.opts       = self.opts
 
         return p
 
     def _to_string(self):
         """Return the string representation of the address pool."""
         p1, p2 = self.proxy_port.num
+        s = ""
 
-        addrs = []
-        for a in self._addrs:
-            if self.id in (PF_PASS, PF_MATCH) and a.addr.addr:
-                addrs.append("(%s %s)" % (a.ifname, a))
-            else:
-                addrs.append("%s" % a)
+        if self.ifname:
+            if self.addr.addr is not None:
+                s += "{0.addr}@".format(self)
+            s += self.ifname
+        else:
+            s += "{0.addr}".format(self)
 
-        s = ", ".join(addrs)
-        if len(addrs) > 1:
-            s = "{ %s }" % s
-
-        if self.id == PF_NAT:
+        if self.id == PF_POOL_NAT:
             if (p1, p2) != (PF_NAT_PROXY_PORT_LOW, PF_NAT_PROXY_PORT_HIGH) and \
                (p1, p2) != (0, 0):
                 if p1 == p2:
-                    s += " port %u" % p1
+                    s += " port {0}".format(p1)
                 else:
-                    s += " port %u:%u" % (p1, p2)
-        elif self.id == PF_RDR:
+                    s += " port {0}:{1}".format(p1, p2)
+        elif self.id == PF_POOL_RDR:
             if p1:
-                s += " port %u" % p1
+                s += " port {0}".format(p1)
                 if p2 and (p2 != p1):
-                    s += ":%u" % p2
+                    s += ":{0}".format(p2)
 
         opt = self.opts & PF_POOL_TYPEMASK
         if opt == PF_POOL_BITMASK:
@@ -577,7 +567,7 @@ class PFPool(PFObject):
         elif opt == PF_POOL_RANDOM:
             s += " random"
         elif opt == PF_POOL_SRCHASH:
-            s += " source-hash %s" % self.key
+            s += " source-hash {0.key}".format(self)
         elif opt == PF_POOL_ROUNDROBIN:
             s += " round-robin"
 
@@ -588,18 +578,6 @@ class PFPool(PFObject):
             s += " static-port"
 
         return s
-
-    def _append(self, *addrs):
-        """Append one or more addresses to the pool."""
-        for addr in addrs:
-            if not isinstance(addr, PFAddr):
-                addr = PFAddr(addr)
-            self._addrs.append(addr)
-
-    @property
-    def addrs(self):
-        """Return the list of the addresses in the pool."""
-        return self._addrs
 
 
 # PFRule class #################################################################
@@ -618,20 +596,33 @@ class PFRule(PFObject):
         """Initalize a new instance from a pf_rule structure."""
         self.src               = PFRuleAddr(r.src, af=r.af, proto=r.proto)
         self.dst               = PFRuleAddr(r.dst, af=r.af, proto=r.proto)
+        #skip
         self.label             = r.label
         self.ifname            = r.ifname
+        self.rcv_ifname        = r.rcv_ifname
         self.qname             = r.qname
         self.pqname            = r.pqname
         self.tagname           = r.tagname
         self.match_tagname     = r.match_tagname
         self.overload_tblname  = r.overload_tblname
-        self.rpool             = None
+        #entries
+
+        self.nat               = PFPool(PF_POOL_NAT, r.nat, af=r.af)
+        if self.nat.addr._is_any():
+            self.nat = PFPool(PF_POOL_NAT, PFAddr(type=PF_ADDR_NONE))
+        self.rdr               = PFPool(PF_POOL_RDR, r.rdr, af=r.af)
+        if self.rdr.addr._is_any():
+            self.rdr = PFPool(PF_POOL_RDR, PFAddr(type=PF_ADDR_NONE))
+        self.route             = PFPool(PF_POOL_ROUTE, r.route, af=r.af)
+        if self.route.addr._is_any():
+            self.route = PFPool(PF_POOL_ROUTE, PFAddr(type=PF_ADDR_NONE))
+
         self.evaluations       = r.evaluations
         self.packets           = tuple(r.packets)
         self.bytes             = tuple(r.bytes)
         self.os_fingerprint    = r.os_fingerprint
         self.rtableid          = r.rtableid
-        self.timeout           = tuple(r.timeout)
+        self.timeout           = list(r.timeout)
         self.states_cur        = r.states_cur
         self.states_tot        = r.states_tot
         self.max_states        = r.max_states
@@ -653,6 +644,7 @@ class PFRule(PFObject):
         self.max_mss           = r.max_mss
         self.tag               = r.tag
         self.match_tag         = r.match_tag
+        self.scrub_flags       = r.scrub_flags
         self.uid               = PFUid(r.uid)
         self.gid               = PFGid(r.gid)
         self.rule_flag         = r.rule_flag
@@ -663,7 +655,6 @@ class PFRule(PFObject):
         self.quick             = bool(r.quick)
         self.ifnot             = bool(r.ifnot)
         self.match_tag_not     = bool(r.match_tag_not)
-        self.natpass           = bool(r.natpass)
         self.keep_state        = r.keep_state
         self.af                = r.af
         self.proto             = r.proto
@@ -682,8 +673,8 @@ class PFRule(PFObject):
         self.anchor_relative   = r.anchor_relative
         self.anchor_wildcard   = r.anchor_wildcard
         self.flush             = r.flush
-        self.scrub_flags       = r.scrub_flags
-        ###self.divert            = 
+        #divert
+        #divert_packet
 
     def _to_struct(self):
         """Convert a PFRule object to a pf_rule structure."""
@@ -691,19 +682,26 @@ class PFRule(PFObject):
 
         r.src               = self.src._to_struct()
         r.dst               = self.dst._to_struct()
+        #skip
         r.label             = self.label
         r.ifname            = self.ifname
+        r.rcv_ifname        = self.rcv_ifname
         r.qname             = self.qname
         r.pqname            = self.pqname
         r.tagname           = self.tagname
         r.match_tagname     = self.match_tagname
         r.overload_tblname  = self.overload_tblname
+        #entries
+        r.nat               = self.nat._to_struct()
+        r.rdr               = self.rdr._to_struct()
+        r.route             = self.route._to_struct()
         r.evaluations       = self.evaluations
         r.packets           = self.packets
         r.bytes             = self.bytes
         r.os_fingerprint    = self.os_fingerprint
         r.rtableid          = self.rtableid
-        r.timeout           = self.timeout
+        for i, t in enumerate(self.timeout):
+            r.timeout[i] = t
         r.states_cur        = self.states_cur
         r.states_tot        = self.states_tot
         r.max_states        = self.max_states
@@ -734,7 +732,6 @@ class PFRule(PFObject):
         r.quick             = int(self.quick)
         r.ifnot             = int(self.ifnot)
         r.match_tag_not     = int(self.match_tag_not)
-        r.natpass           = int(self.natpass)
         r.keep_state        = self.keep_state
         r.af                = self.af
         r.proto             = self.proto
@@ -751,8 +748,8 @@ class PFRule(PFObject):
         r.anchor_relative   = self.anchor_relative
         r.anchor_wildcard   = self.anchor_wildcard
         r.flush             = self.flush
-        r.scrub_flags       = self.scrub_flags
-        ###r.divert            = 
+        #divert
+        #divert_packet
 
         return r
 
@@ -765,16 +762,14 @@ class PFRule(PFObject):
                       "rdr-anchor", "rdr-anchor")
 
         if self.action > PF_MATCH:
-            s = "action(%d)" % self.action
+            s = "action({0.action})".format(self)
         elif isinstance(self, PFRuleset):
             if self.name:
                 s = pf_anchors[self.action]
                 if not self.name.startswith("_"):
-                    s += " \"%s\"" % self.name
+                    s += " \"{0.name}\"".format(self)
         else:
             s = pf_actions[self.action]
-            if self.natpass:
-                s += " pass"
 
         if self.action == PF_DROP:
             if self.rule_flag & PFRULE_RETURN:
@@ -782,19 +777,20 @@ class PFRule(PFObject):
             elif self.rule_flag & PFRULE_RETURNRST:
                 s += " return-rst"
                 if self.return_ttl:
-                    s += "(ttl %d)" % self.return_ttl
+                    s += "(ttl {0.return_ttl})".format(self)
             elif self.rule_flag & PFRULE_RETURNICMP:
                 ic  = geticmpcodebynumber(self.return_icmp >> 8,
                                           self.return_icmp & 0xff, AF_INET)
                 ic6 = geticmpcodebynumber(self.return_icmp6 >> 8,
                                           self.return_icmp6 & 0xff, AF_INET6)
+                s += " return-icmp"
                 if self.af == AF_INET:
-                    s += " return-icmp(%s)" % (ic or self.return_icmp & 0xff)
+                    s += "({0})".format(ic or self.return_icmp & 0xff)
                 elif self.af == AF_INET6:
-                    s += " return-icmp6(%s)" % (ic6 or self.return_icmp6 & 0xff)
+                    s += "6({0})".format(ic6 or self.return_icmp6 & 0xff)
                 else:
-                    s += "(%s, %s)" % ((ic or self.return_icmp & 0xff),
-                                       (ic6 or self.return_icmp6 & 0xff))
+                    s += "({0}, {1})".format((ic or self.return_icmp & 0xff),
+                                             (ic6 or self.return_icmp6 & 0xff))
             else:
                 s += " drop"
 
@@ -812,29 +808,17 @@ class PFRule(PFObject):
                 if self.log & PF_LOG_SOCKET_LOOKUP:
                     l.append("user")
                 if self.logif:
-                    l.append("to pflog%u" % self.logif)
-                s += " (%s)" % ", ".join(l)
+                    l.append("to pflog{0.logif}".format(self))
+                s += " ({0})".format(", ".join(l))
 
         if self.quick:
             s += " quick"
 
         if self.ifname:
             if self.ifnot:
-                s += " on ! %s" % self.ifname
+                s += " on ! {0.ifname}".format(self)
             else:
-                s += " on %s" % self.ifname
-
-        if self.rt:
-            if self.rt == PF_ROUTETO:
-                s += " route-to"
-            elif self.rt == PF_REPLYTO:
-                s += " reply-to"
-            elif self.rt == PF_DUPTO:
-                s += " dup-to"
-            elif  self.rt == PF_FASTROUTE:
-                s += " fastroute"
-            if self.rt != PF_FASTROUTE:
-                s += " %s" % self.rpool
+                s += " on {0.ifname}".format(self)
 
         if self.af:
             if self.af == AF_INET:
@@ -843,26 +827,27 @@ class PFRule(PFObject):
                 s += " inet6"
 
         if self.proto:
-            s += " proto %s" % (getprotobynumber(self.proto) or self.proto)
+            s += " proto {0}".format(getprotobynumber(self.proto) or self.proto)
 
         if self.src.addr._is_any() and self.dst.addr._is_any() and \
            not self.src.neg and not self.dst.neg               and \
-           not (self.src.port.op or self.src.port.num[0])      and \
-           not (self.dst.port.op or self.dst.port.num[0])      and \
+           not self.src.port.op and not self.dst.port.op       and \
            self.os_fingerprint == PF_OSFP_ANY:
             s += " all"
         else:
-            s += " from %s" % self.src
+            s += " from {0.src}".format(self)
             #if self.os_fingerprint != PF_OSFP_ANY:
-            s += " to %s" % self.dst
+            s += " to {0.dst}".format(self)
 
+        if self.rcv_ifname:
+            s += " received on {0.rcv_ifname}".format(self)
         if self.uid.op:
-            s += " user %s" % self.uid
+            s += " user {0.uid}".format(self)
         if self.gid.op:
-            s += " group %s" % self.gid
+            s += " group {0.gid}".format(self)
 
         if self.flags or self.flagset:
-            s += " flags %s/%s" % (self.flags, self.flagset)
+            s += " flags {0.flags}/{0.flagset}".format(self)
         elif self.action in (PF_PASS, PF_MATCH)     and \
              self.proto in (0, IPPROTO_TCP)         and \
              not (self.rule_flag & PFRULE_FRAGMENT) and \
@@ -876,13 +861,13 @@ class PFRule(PFObject):
                 s += " icmp-type"
             else:
                 s += " icmp6-type"
-            s += " %s" % (it or self.type-1)
+            s += " {0}".format(it or self.type-1)
             if self.code:
                 ic = geticmpcodebynumber(self.type-1, self.code-1, self.af)
-                s += " code %s" % (ic or self.code-1)
+                s += " code {0}".format(ic or self.code-1)
 
         if self.tos:
-            s += " tos 0x%2.2x" % self.tos
+            s += " tos {0.tos:#04x}".format(self)
 
         if not self.keep_state and self.action == PF_PASS and \
            not isinstance(self, PFRuleset):
@@ -907,40 +892,50 @@ class PFRule(PFObject):
             if self.scrub_flags & PFSTATE_RANDOMID:
                 opts.append("random-id")
             if self.min_ttl:
-                opts.append("min-ttl %d" % self.min_ttl)
+                opts.append("min-ttl {0.min_ttl}".format(self.min_ttl))
             if self.scrub_flags & PFSTATE_SETTOS:
-                opts.append("set-tos 0x%2.2x" % self.set_tos)
+                opts.append("set-tos {0.set_tos:#04x}".format(self))
             if self.scrub_flags & PFSTATE_SCRUB_TCP:
                 opts.append("reassemble tcp")
             if self.max_mss:
-                opts.append("max_mss %d" % self.max_mss)
-            s += " scrub (%s)" % " ".join(opts)
+                opts.append("max_mss {0.max_mss}".format(self))
+            s += " scrub ({0})".format(" ".join(opts))
 
         if self.allow_opts:
             s += " allow-opts"
         if self.label:
-            s += " label \"%s\"" % self.label
+            s += " label \"{0.label}\"".format(self)
 
         if self.qname and self.pqname:
-            s += " queue(%s, %s)" % (self.qname, self.pqname)
+            s += " queue({0.qname}, {0.pqname})".format(self)
         elif self.qname:
-            s += " queue %s" % self.qname
+            s += " queue {0.qname}".format(self)
 
         if self.tagname:
-            s += " tag %s" % self.tagname
+            s += " tag {0.tagname}".format(self)
         if self.match_tagname:
             if self.match_tag_not:
                 s += " !"
-            s += " tagged %s" % self.match_tagname
+            s += " tagged {0.match_tagname}".format(self)
 
         if self.rtableid != -1:
-            s += " rtable %u" % self.rtableid
+            s += " rtable {0.rtableid}".format(self)
 
         # divert
 
-        if not isinstance(self, PFRuleset) and \
-           self.action in (PF_NAT, PF_BINAT, PF_RDR):
-            s += " -> %s" % self.rpool
+        if not isinstance(self, PFRuleset):
+            if self.nat.addr.type != PF_ADDR_NONE:
+                s += " nat-to {0.nat}".format(self)
+            if self.rdr.addr.type != PF_ADDR_NONE:
+                s += " rdr-to {0.rdr}".format(self)
+        if self.rt == PF_ROUTETO:
+            s += " route-to {0.route}".format(self)
+        elif self.rt == PF_REPLYTO:
+            s += " reply-to {0.route}".format(self)
+        elif self.rt == PF_DUPTO:
+            s += " dup-to {0.route}".format(self)
+        elif self.rt == PF_FASTROUTE:
+            s += " fastroute"
 
         return s
 
@@ -951,43 +946,34 @@ class PFRuleset(PFRule):
 
     def __init__(self, name="", rule=None, **kw):
         """Check arguments and initialize instance attributes."""
+        self.name    = name
+        self._rules  = []
+        self._tables = []
         super(PFRuleset, self).__init__(rule, **kw)
-        self.name = name
-        self._rules = {PF_RULESET_TABLE:  [],
-                       PF_RULESET_NAT:    [],
-                       PF_RULESET_RDR:    [],
-                       PF_RULESET_BINAT:  [],
-                       PF_RULESET_FILTER: []}
 
-    def append(self, action, *rules):
-        """Append one or more rules to the rules of type 'action'."""
-        self._rules[action].extend(rules)
+    def append(self, *items):
+        """Append one or more rules and/or tables."""
+        self._rules.extend(filter(lambda i: isinstance(i, PFRule), items))
+        self._tables.extend(filter(lambda i: isinstance(i, PFTable), items))
 
-    def insert(self, action, index, rule):
-        """Insert a 'rule' of type 'action' before 'index'."""
-        self._rules[action].insert(index, rule)
+    def insert(self, index, rule):
+        """Insert a 'rule' before 'index'."""
+        self._rules.insert(index, rule)
 
-    def remove(self, action, index=-1):
-        """Remove the rule of type 'action' at 'index'."""
-        self._rules[action].pop(index)
-
-    def clear(self, action=None):
-        """Clear all rules or rules of type 'action' (if specified)."""
-        if action is None:
-            for a in self._rules.keys():
-                self.clear(a)
-        else:
-            self._rules[action] = []
+    def remove(self, index=-1):
+        """Remove the rule at 'index'."""
+        self._rules.pop(index)
 
     @property
     def rules(self):
-        """Return the rules in this ruleset as a dictionary."""
+        """Return the rules in this ruleset."""
         return self._rules
+
+    @property
+    def tables(self):
+        """Return the tables in this ruleset."""
+        return self._tables
 
     def _to_string(self):
         """Return the string representation of the ruleset."""
-        rulesets = (PF_RULESET_NAT, PF_RULESET_RDR, PF_RULESET_BINAT,
-                    PF_RULESET_FILTER)
-
-        return "\n".join([PFRule._to_string(rule) for r in rulesets
-                                                  for rule in self._rules[r]])
+        return "\n".join([PFRule._to_string(rule) for rule in self._rules])

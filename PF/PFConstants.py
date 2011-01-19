@@ -18,15 +18,13 @@ PF_NORDR                = 9
 PF_SYNPROXY_DROP        = 10
 PF_DEFER                = 11
 PF_MATCH                = 12
+PF_DIVERT               = 13
+PF_RT                   = 14
 
-# PF ruleset types
-PF_RULESET_FILTER       = 0
-PF_RULESET_NAT          = 1
-PF_RULESET_BINAT        = 2
-PF_RULESET_RDR          = 3
-PF_RULESET_MAX          = 4
-PF_RULESET_ALTQ         = PF_RULESET_MAX
-PF_RULESET_TABLE        = PF_RULESET_MAX + 1
+# PF transaction types
+PF_TRANS_RULESET        = 0
+PF_TRANS_ALTQ           = 1
+PF_TRANS_TABLE          = 2
 
 # PF rule flags
 PFRULE_DROP             = 0x0000
@@ -54,6 +52,10 @@ PF_OP_GT                = 6
 PF_OP_GE                = 7
 PF_OP_XRG               = 8
 PF_OP_RRG               = 9
+
+# Rules retrieval options
+PF_GET_NONE             = 0
+PF_GET_CLR_CNTR         = 1
 
 # PF keep states
 PF_STATE_NORMAL         = 0x1
@@ -86,6 +88,7 @@ PF_ADDR_TABLE           = 3
 PF_ADDR_RTLABEL         = 4
 PF_ADDR_URPFFAILED      = 5
 PF_ADDR_RANGE           = 6
+PF_ADDR_NONE            = 7
 
 # OS fingerprints matches
 PF_OSFP_ANY             = 0
@@ -117,6 +120,11 @@ IPTOS_RELIABILITY       = 0x04
 PF_NAT_PROXY_PORT_LOW   = 50001
 PF_NAT_PROXY_PORT_HIGH  = 65535
 
+# Pool IDs
+PF_POOL_ROUTE           = 0
+PF_POOL_NAT             = 1
+PF_POOL_RDR             = 2
+
 # Pool options
 PF_POOL_TYPEMASK        = 0x0f
 PF_POOL_STICKYADDR      = 0x20
@@ -128,11 +136,18 @@ PF_POOL_RANDOM          = 2
 PF_POOL_SRCHASH         = 3
 PF_POOL_ROUNDROBIN      = 4
 
+# Mask for window scaling factor
+PF_WSCALE_MASK          = 0x0f
+
 # Debug levels
-PF_DEBUG_NONE           = 0
-PF_DEBUG_URGENT         = 1
-PF_DEBUG_MISC           = 2
-PF_DEBUG_NOISY          = 3
+LOG_EMERG               = 0
+LOG_ALERT               = 1
+LOG_CRIT                = 2
+LOG_ERR                 = 3
+LOG_WARNING             = 4
+LOG_NOTICE              = 5
+LOG_INFO                = 6
+LOG_DEBUG               = 7
 
 # The 'unlimited' value for limits on the memory pools
 UINT_MAX                = maxint * 2 + 1
@@ -253,6 +268,45 @@ PFR_REFCNT_RULE         = 0
 PFR_REFCNT_ANCHOR       = 1
 PFR_REFCNT_MAX          = 2
 
+# pfrke type
+PFRKE_PLAIN             = 0
+PFRKE_ROUTE             = 1
+PFRKE_MAX               = 2
+
+# Interface flags
+PFI_IFLAG_SKIP          = 0x0100
+
+# ALTQ constants
+ALTQT_CBQ               = 1
+ALTQT_HFSC              = 8
+ALTQT_PRIQ              = 11
+
+DEFAULT_PRIORITY        = 1
+DEFAULT_QLIMIT          = 50
+
+# CBQ class flags
+CBQCLF_RED              = 0x0001
+CBQCLF_ECN              = 0x0002
+CBQCLF_RIO              = 0x0004
+CBQCLF_FLOWVALVE        = 0x0008
+CBQCLF_CLEARDSCP        = 0x0010
+CBQCLF_BORROW           = 0x0020
+CBQCLF_WRR              = 0x0100
+CBQCLF_EFFICIENT        = 0x0200
+CBQCLF_ROOTCLASS        = 0x1000
+CBQCLF_DEFCLASS         = 0x2000
+# PRIQ class flags
+PRCF_RED                = 0x0001
+PRCF_ECN                = 0x0002
+PRCF_RIO                = 0x0004
+PRCF_CLEARDSCP          = 0x0010
+PRCF_DEFAULTCLASS       = 0x1000
+# HFSC class flags
+HFCF_RED                = 0x0001
+HFCF_ECN                = 0x0002
+HFCF_RIO                = 0x0004
+HFCF_CLEARDSCP          = 0x0010
+HFCF_DEFAULTCLASS       = 0x1000
 
 # ICMP types
 ICMP_ECHO                        = 8
@@ -355,4 +409,3 @@ ICMP6_PARAMPROB_NEXTHEADER       = 1
 ICMP6_PARAMPROB_OPTION           = 2
 ND_REDIRECT_ONLINK               = 0
 ND_REDIRECT_ROUTER               = 1
-

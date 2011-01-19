@@ -1,3 +1,12 @@
+Jan 19, 2011 -- version 0.0.5
+    - Updated to OpenBSD 4.8; the PF stack has undergone some major changes,
+      such as removing the different rule types (nat, rdr, binat ... rules do
+      not exist anymore) and introducing 'match' rules.
+      This has greatly simplified the PFRuleset class and the PacketFilter
+      methods that load/retrieve rules.
+    - Various bugs have been corrected
+    - All the code has been reviewed and is now Py3k-ready.
+
 Jul 26, 2009 -- version 0.0.4
 
     - Updated to OpenBSD-current; modifications include the removal of 'scrub'

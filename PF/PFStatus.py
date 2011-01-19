@@ -15,6 +15,17 @@ from PF.PFUtils import PFObject
 __all__ = ['PFStatus']
 
 
+# Dictionaries for mapping constants to strings ################################
+dbg_levels = {LOG_EMERG:   "emerg",
+              LOG_ALERT:   "alert",
+              LOG_CRIT:    "crit",
+              LOG_ERR:     "err",
+              LOG_WARNING: "warning",
+              LOG_NOTICE:  "notice",
+              LOG_INFO:    "info",
+              LOG_DEBUG:   "debug"}
+
+
 # PFStatus class ###############################################################
 class PFStatus(PFObject):
     """Class representing the internal Packet Filter statistics and counters."""
@@ -29,13 +40,14 @@ class PFStatus(PFObject):
         """Initialize class attributes from a pf_status structure."""
         self.ifname    = s.ifname
         self.running   = bool(s.running)
+        #stateid
         self.since     = s.since
         self.states    = s.states
         self.src_nodes = s.src_nodes
         self.debug     = s.debug
         self.hostid    = ntohl(s.hostid) & 0xffffffff
         self.reass     = s.reass
-        self.pf_chksum = "0x" + "".join(["%02x" % b for b in s.pf_chksum])
+        self.pf_chksum = "0x" + "".join(map("{0:02x}".format, s.pf_chksum))
 
         self.cnt       = {'match':                    s.counters[0],
                           'bad-offset':               s.counters[1],
@@ -86,56 +98,55 @@ class PFStatus(PFObject):
         s = "Status: " + ('Enabled' if self.running else 'Disabled')
 
         if self.since:
-            runtime = time.time() - self.since
+            runtime = int(time.time()) - self.since
             day, sec = divmod(runtime, 60)
             day, min = divmod(day, 60)
             day, hrs = divmod(day, 24)
-            s += " for %i days %02i:%02i:%02i" % (day, hrs, min, sec)
+            s += " for {0} days {1:02}:{2:02}:{3:02}".format(day, hrs, min, sec)
 
-        dbg = ('none', 'urgent', 'misc', 'loud')[self.debug]
-        s = "%-44s%15s\n\n" % (s, "Debug: " + dbg)
-        s += "Hostid:   0x%08x\n" % self.hostid
-        s += "Checksum: %s\n\n" % self.pf_chksum
+        dbg = dbg_levels.get(self.debug, "unknown")
+        s = "{0:<44}{1:>15}\n\n".format(s, "Debug: " + dbg)
+        s += "Hostid:   0x{0.hostid:08x}\n".format(self)
+        s += "Checksum: {0.pf_chksum}\n\n".format(self)
 
         if self.ifname:
-            fmt = "  %-25s %14u %16u\n"
-            s += "Interface Stats for %-16s %5s %16s\n" % (self.ifname,
-                                                           "IPv4", "IPv6")
-            s += fmt % (("Bytes In",)  + self.bytes["in"])
-            s += fmt % (("Bytes Out",) + self.bytes["out"])
+            fmt = "  {0:<25} {1[0]:>14d} {1[1]:>16d}\n"
+            s += "Interface Stats for {0.ifname:<16} ".format(self)
+            s += "{0:>5} {1:>16}\n".format("IPv4", "IPv6")
+            s += fmt.format("Bytes In", self.bytes["in"])
+            s += fmt.format("Bytes Out", self.bytes["out"])
             s += "  Packets In\n"
-            s += fmt % (("  Passed",)  + self.packets["in"][PF_PASS])
-            s += fmt % (("  Blocked",) + self.packets["in"][PF_DROP])
+            s += fmt.format("  Passed", self.packets["in"][PF_PASS])
+            s += fmt.format("  Blocked", self.packets["in"][PF_DROP])
             s += "  Packets Out\n"
-            s += fmt % (("  Passed",)  + self.packets["out"][PF_PASS])
-            s += fmt % (("  Blocked",) + self.packets["out"][PF_DROP])
+            s += fmt.format("  Passed", self.packets["out"][PF_PASS])
+            s += fmt.format("  Blocked", self.packets["out"][PF_DROP])
             s += "\n"
 
-        s += "%-27s %14s %16s\n" % ("State Table", "Total", "Rate")
-        s += "  %-25s %14u" % ("current entries", self.states)
+        s += "{0:<27} {1:>14} {2:>16}\n".format("State Table", "Total", "Rate")
+        s += "  {0:<25} {1.states:>14d}".format("current entries", self)
         for k, v in self.fcnt.iteritems():
-            s += "\n  %-25s %14u " % (k, v)
+            s += "\n  {0:<25} {1:>14d} ".format(k, v)
             if self.since:
-                s += "%14.1f/s" % (v/runtime)
+                s += "{0:>14.1f}/s".format(float(v)/runtime)
 
         s += "\nSource Tracking Table"
-        s += "\n  %-25s %14u" % ("current entries", self.src_nodes)
+        s += "  {0:<25} {1.src_nodes:>14d}".format("current entries", self)
         for k, v in self.scnt.iteritems():
-            s += "\n  %-25s %14u " % (k, v)
+            s += "\n  {0:<25} {1:>14d} ".format(k, v)
             if self.since:
-                s += "%14.1f/s" % (v/runtime)
+                s += "{0:>14.1f}/s".format(float(v)/runtime)
 
         s += "\nCounters"
         for k, v in self.cnt.iteritems():
-            s += "\n  %-25s %14u " % (k, v)
+            s += "\n  {0:<25} {1:>14d} ".format(k, v)
             if self.since:
-                s += "%14.1f/s" % (v/runtime)
+                s += "{0:>14.1f}/s".format(float(v)/runtime)
 
         s += "\nLimit Counters"
         for k, v in self.lcnt.iteritems():
-            s += "\n  %-25s %14u " % (k, v)
+            s += "\n  {0:<25} {1:>14d} ".format(k, v)
             if self.since:
-                s += "%14.1f/s" % (v/runtime)
+                s += "{0:>14.1f}/s".format(float(v)/runtime)
 
         return s
-

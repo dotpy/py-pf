@@ -44,9 +44,9 @@ DIOCGETRULES     = _IOWR('D',  6, pfioc_rule)
 DIOCGETRULE      = _IOWR('D',  7, pfioc_rule)
 DIOCCLRSTATES    = _IOWR('D', 18, pfioc_state_kill)
 #DIOCGETSTATE     = _IOWR('D', 19, pfioc_state)
-DIOCSETSTATUSIF  = _IOWR('D', 20, pfioc_if)
+DIOCSETSTATUSIF  = _IOWR('D', 20, pfioc_iface)
 DIOCGETSTATUS    = _IOWR('D', 21, pf_status)
-DIOCCLRSTATUS    = _IO  ('D', 22)
+DIOCCLRSTATUS    = _IOWR('D', 22, pfioc_iface)
 #DIOCNATLOOK      = _IOWR('D', 23, pfioc_natlook)
 DIOCSETDEBUG     = _IOWR('D', 24, c_uint32)
 DIOCGETSTATES    = _IOWR('D', 25, pfioc_states)
@@ -60,16 +60,11 @@ DIOCSETLIMIT     = _IOWR('D', 40, pfioc_limit)
 DIOCKILLSTATES   = _IOWR('D', 41, pfioc_state_kill)
 DIOCSTARTALTQ    = _IO  ('D', 42)
 DIOCSTOPALTQ     = _IO  ('D', 43)
-#DIOCADDALTQ      = _IOWR('D', 45, pfioc_altq)
-#DIOCGETALTQS     = _IOWR('D', 47, pfioc_altq)
-#DIOCGETALTQ      = _IOWR('D', 48, pfioc_altq)
+DIOCADDALTQ      = _IOWR('D', 45, pfioc_altq)
+DIOCGETALTQS     = _IOWR('D', 47, pfioc_altq)
+DIOCGETALTQ      = _IOWR('D', 48, pfioc_altq)
 #DIOCCHANGEALTQ   = _IOWR('D', 49, pfioc_altq)
 #DIOCGETQSTATS    = _IOWR('D', 50, pfioc_qstats)
-DIOCBEGINADDRS   = _IOWR('D', 51, pfioc_pooladdr)
-DIOCADDADDR      = _IOWR('D', 52, pfioc_pooladdr)
-DIOCGETADDRS     = _IOWR('D', 53, pfioc_pooladdr)
-DIOCGETADDR      = _IOWR('D', 54, pfioc_pooladdr)
-#DIOCCHANGEADDR   = _IOWR('D', 55, pfioc_pooladdr)
 #DIOCGETRULESETS  = _IOWR('D', 58, pfioc_ruleset)
 #DIOCGETRULESET   = _IOWR('D', 59, pfioc_ruleset)
 DIOCRCLRTABLES   = _IOWR('D', 60, pfioc_table)
@@ -98,16 +93,20 @@ DIOCXROLLBACK    = _IOWR('D', 83, pfioc_trans)
 #DIOCCLRSRCNODES  = _IO  ('D', 85)
 DIOCSETHOSTID    = _IOWR('D', 86, c_uint32)
 #DIOCIGETIFACES   = _IOWR('D', 87, pfioc_iface)
-#DIOCSETIFFLAG    = _IOWR('D', 89, pfioc_iface)
-#DIOCCLRIFFLAG    = _IOWR('D', 90, pfioc_iface)
+DIOCSETIFFLAG    = _IOWR('D', 89, pfioc_iface)
+DIOCCLRIFFLAG    = _IOWR('D', 90, pfioc_iface)
 #DIOCKILLSRCNODES = _IOWR('D', 91, pfioc_src_node_kill)
 DIOCSETREASS     = _IOWR('D', 92, c_uint32)
 
 # Dictionaries for mapping strings to constants ################################
-dbg_levels  = {"none":            PF_DEBUG_NONE,
-               "urgent":          PF_DEBUG_URGENT,
-               "misc":            PF_DEBUG_MISC,
-               "loud":            PF_DEBUG_NOISY}
+dbg_levels  = {"emerg":           LOG_EMERG,
+               "alert":           LOG_ALERT,
+               "crit":            LOG_CRIT,
+               "err":             LOG_ERR,
+               "warn":            LOG_WARNING,
+               "notice":          LOG_NOTICE,
+               "info":            LOG_INFO,
+               "debug":           LOG_DEBUG}
 
 pf_limits   = {"states":          PF_LIMIT_STATES,
                "src-nodes":       PF_LIMIT_SRC_NODES,
@@ -137,6 +136,36 @@ pf_timeouts = {"tcp.first":       PFTM_TCP_FIRST_PACKET,
                "src.track":       PFTM_SRC_NODE}
 
 
+# _PFTrans object ##############################################################
+class _PFTrans(object):
+    """Class for managing transactions with the Packet Filter subsystem."""
+
+    def __init__(self, dev, path="", *trans_type):
+        """Initialize the required structures."""
+        self.dev = dev
+        self.size = len(trans_type)
+        self.array = (pfioc_trans_e * self.size)()
+
+        for a, t in zip(self.array, trans_type):
+            a.type = t
+            a.anchor = path
+
+        self._pt = pfioc_trans(size=self.size, esize=sizeof(pfioc_trans_e),
+                               array=addressof(self.array))
+
+    def __enter__(self):
+        """Start the transaction."""
+        ioctl(self.dev, DIOCXBEGIN, self._pt.asBuffer())
+        return self
+
+    def __exit__(self, type, value, traceback):
+        """Commit changes if no exceptions occurred; otherwise, rollback."""
+        if type is None:
+            ioctl(self.dev, DIOCXCOMMIT, self._pt.asBuffer())
+        else:
+            ioctl(self.dev, DIOCXROLLBACK, self._pt.asBuffer())
+
+
 # PacketFilter class ###########################################################
 class PacketFilter:
     """Class representing the kernel's packet filtering subsystem.
@@ -147,12 +176,12 @@ class PacketFilter:
     and may consequently raise IOError if the ioctl() request fails.
     """
 
-    def __init__(self, dev='/dev/pf'):
+    def __init__(self, dev="/dev/pf"):
         """Set the pf device."""
         self.dev = dev
 
     def enable(self):
-        """Enable Packet Filtering and Network Address Translation."""
+        """Enable Packet Filtering."""
         with open(self.dev, 'w') as d:
             try:
                 ioctl(d, DIOCSTART)
@@ -161,7 +190,7 @@ class PacketFilter:
                     raise
 
     def disable(self):
-        """Disable Packet Filtering and Network Address Translation."""
+        """Disable Packet Filtering."""
         with open(self.dev, 'w') as d:
             try:
                 ioctl(d, DIOCSTOP)
@@ -200,17 +229,14 @@ class PacketFilter:
     def set_debug(self, level):
         """Set the debug level.
 
-        The debug level can be either one of the PF_DEBUG_* constants or a
-        string.
+        The debug level can be either one of the LOG_* constants or a string.
         """
-        if level in dbg_levels.keys():
+        if level in dbg_levels:
             level = dbg_levels[level]
 
-        pt = pfioc_trans(esize=sizeof(pfioc_trans_e))
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCXBEGIN, pt.asBuffer())
-            ioctl(d, DIOCSETDEBUG, c_uint32(level))
-            ioctl(d, DIOCXCOMMIT, pt.asBuffer())
+            with _PFTrans(d):
+                ioctl(d, DIOCSETDEBUG, c_uint32(level))
 
     def set_hostid(self, id):
         """Set the host ID.
@@ -218,11 +244,9 @@ class PacketFilter:
         The host ID is used by pfsync to identify the host that created a state
         table entry. 'id' must be a 32-bit unsigned integer.
         """
-        pt = pfioc_trans(esize=sizeof(pfioc_trans_e))
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCXBEGIN, pt.asBuffer())
-            ioctl(d, DIOCSETHOSTID, c_uint32(htonl(id)))
-            ioctl(d, DIOCXCOMMIT, pt.asBuffer())
+            with _PFTrans(d):
+                ioctl(d, DIOCSETHOSTID, c_uint32(htonl(id)))
 
     def set_reassembly(self, reassembly):
         """Enable reassembly of network traffic.
@@ -230,11 +254,9 @@ class PacketFilter:
         The 'reassembly' argument specifies the flags for the reassembly
         operation; available flags are PF_REASS_ENABLED and PF_REASS_NODF.
         """
-        pt = pfioc_trans(esize=sizeof(pfioc_trans_e))
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCXBEGIN, pt.asBuffer())
-            ioctl(d, DIOCSETREASS, c_uint32(reassembly))
-            ioctl(d, DIOCXCOMMIT, pt.asBuffer())
+            with _PFTrans(d):
+                ioctl(d, DIOCSETREASS, c_uint32(reassembly))
 
     def get_limit(self, limit=None):
         """Return the hard limits on the memory pools used by Packet Filter.
@@ -245,8 +267,8 @@ class PacketFilter:
         limits.
         """
         if limit is None:
-            return dict([(k, self.get_limit(k)) for k in pf_limits.keys()])
-        elif limit in pf_limits.keys():
+            return dict([(l, self.get_limit(l)) for l in pf_limits])
+        elif limit in pf_limits:
             limit = pf_limits[limit]
 
         pl = pfioc_limit(index=limit)
@@ -263,31 +285,29 @@ class PacketFilter:
         'value' of UINT_MAX means unlimited. Raise PFError if the current pool
         size exceeds the requested hard limit.
         """
-        if limit in pf_limits.keys():
+        if limit in pf_limits:
             limit = pf_limits[limit]
 
         pl = pfioc_limit(index=limit, limit=value)
-        pt = pfioc_trans(esize=sizeof(pfioc_trans_e))
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCXBEGIN, pt.asBuffer())
-            try:
-                ioctl(d, DIOCSETLIMIT, pl.asBuffer())
-            except IOError, (e, s):
-                if e == EBUSY:
-                    raise PFError("Current pool size exceeds requested hard limit")
-                raise
-            ioctl(d, DIOCXCOMMIT, pt.asBuffer())
+            with _PFTrans(d):
+                try:
+                    ioctl(d, DIOCSETLIMIT, pl.asBuffer())
+                except IOError, (e, s):
+                    if e == EBUSY:
+                        raise PFError("Current pool size > {0:d}".format(value))
+                    raise
 
     def get_timeout(self, timeout=None):
-        """Return the configured timeout values for states.
+        """Return the configured timeout values for PF states.
 
         'timeout' can be either one of the PFTM_* constants or a string; return
         the value of the requested timeout or, if called with no arguments, a
         dictionary containing all the available timeouts.
         """
         if timeout is None:
-            return dict([(k, self.get_timeout(k)) for k in pf_timeouts.keys()])
-        elif timeout in pf_timeouts.keys():
+            return dict([(t, self.get_timeout(t)) for t in pf_timeouts])
+        elif timeout in pf_timeouts:
             timeout = pf_timeouts[timeout]
 
         tm = pfioc_tm(timeout=timeout)
@@ -297,22 +317,40 @@ class PacketFilter:
         return tm.seconds
 
     def set_timeout(self, timeout, value):
-        """Set the timeout 'value' for a specific state.
+        """Set the timeout 'value' for a specific PF state.
 
         'timeout' can be either one of the PFTM_* constants or a string; return
         the old value of the specified timeout.
         """
-        if timeout in pf_timeouts.keys():
+        if timeout in pf_timeouts:
             timeout = pf_timeouts[timeout]
 
         tm = pfioc_tm(timeout=timeout, seconds=value)
-        pt = pfioc_trans(esize=sizeof(pfioc_trans_e))
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCXBEGIN, pt.asBuffer())
-            ioctl(d, DIOCSETTIMEOUT, tm.asBuffer())
-            ioctl(d, DIOCXCOMMIT, pt.asBuffer())
+            with _PFTrans(d):
+                ioctl(d, DIOCSETTIMEOUT, tm.asBuffer())
 
         return tm.seconds
+
+    def set_ifflag(self, ifname, flags):
+        """Set the user setable 'flags' on the interface 'ifname'."""
+        pi = pfioc_iface(pfiio_name=ifname, pfiio_flags=flags)
+        with open(self.dev, 'w') as d:
+            with _PFTrans(d):
+                ioctl(d, DIOCSETIFFLAG, pi.asBuffer())
+
+    def clear_ifflags(self, ifname, flags=None):
+        """Clear the specified user setable 'flags' on the interface 'ifname'.
+
+        If no flags are specified, clear all flags.
+        """
+        if flags is None:
+            flags = PFI_IFLAG_SKIP
+
+        pi = pfioc_iface(pfiio_name=ifname, pfiio_flags=flags)
+        with open(self.dev, 'w') as d:
+            with _PFTrans(d):
+                ioctl(d, DIOCCLRIFFLAG, pi.asBuffer())
 
     def set_status_if(self, ifname=""):
         """Specify the interface for which statistics are accumulated.
@@ -320,18 +358,15 @@ class PacketFilter:
         If no 'ifname' is provided, turn off the collection of per-interface
         statistics. Raise PFError if 'ifname' is not a valid interface name.
         """
-        pi = pfioc_if(ifname=ifname)
-        pt = pfioc_trans(esize=sizeof(pfioc_trans_e))
+        pi = pfioc_iface(pfiio_name=ifname)
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCXBEGIN, pt.asBuffer())
-            try:
-                ioctl(d, DIOCSETSTATUSIF, pi.asBuffer())
-            except IOError, (e, s):
-                if e == EINVAL:
-                    raise PFError("Not a valid interface name: '%s'" % ifname)
-                raise
-            else:
-                ioctl(d, DIOCXCOMMIT, pt.asBuffer())
+            with _PFTrans(d):
+                try:
+                    ioctl(d, DIOCSETSTATUSIF, pi.asBuffer())
+                except IOError, (e, s):
+                    if e == EINVAL:
+                        raise PFError("Invalid ifname: '{0}'".format(ifname))
+                    raise
 
     def get_status(self):
         """Return a PFStatus object containing the internal PF statistics."""
@@ -341,10 +376,15 @@ class PacketFilter:
 
         return PFStatus(s)
 
-    def clear_status(self):
-        """Clear the internal packet filter statistics."""
+    def clear_status(self, ifname=""):
+        """Clear the internal packet filter statistics.
+
+        An optional 'ifname' can be specified in order to clear statistics only
+        for a specific interface.
+        """
+        pi = pfioc_iface(pfiio_name=ifname)
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCCLRSTATUS)
+            ioctl(d, DIOCCLRSTATUS, pi.asBuffer())
 
     def get_states(self):
         """Retrieve Packet Filter's state table entries.
@@ -354,16 +394,22 @@ class PacketFilter:
         """
         ps = pfioc_states()
 
+        l  = 0
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCGETSTATES, ps.asBuffer())
-            ps_num = ps.ps_len / sizeof(pfsync_state)
-            ps_states = (pfsync_state * ps_num)()
-
-            if ps_num:
-                ps.ps_states = addressof(ps_states)
+            while True:
+                if l:
+                    ps_states = (pfsync_state * (l / sizeof(pfsync_state)))()
+                    ps.ps_buf = addressof(ps_states)
+                    ps.ps_len = l
                 ioctl(d, DIOCGETSTATES, ps.asBuffer())
+                if ps.ps_len == 0:
+                    return
+                if ps.ps_len <= l:
+                    break
+                l = (ps.ps_len * 2)
 
-        return tuple([PFState(s) for s in ps_states])
+        ps_num = (ps.ps_len / sizeof(pfsync_state))
+        return tuple([PFState(s) for s in ps_states[:ps_num]])
 
     def clear_states(self, ifname=""):
         """Clear all states.
@@ -376,18 +422,18 @@ class PacketFilter:
         with open(self.dev, 'w') as d:
             ioctl(d, DIOCCLRSTATES, psk.asBuffer())
 
-        return psk.psk_af
+        return psk.psk_killed
 
     def kill_states(self, af=AF_UNSPEC, proto=0, src=None, dst=None, ifname="",
-                    label=""):
+                    label="", rdomain=0):
         """Clear states matching the specified arguments.
 
-        States can be secified by address family, layer-4 protocol, source and
-        destination addresses, interface name and label. Return the number of
-        killed states.
+        States can be specified by address family, layer-4 protocol, source and
+        destination addresses, interface name, label and routing domain. Return
+        the number of killed states.
         """
         psk = pfioc_state_kill(psk_af=af, psk_proto=proto, psk_ifname=ifname,
-                               psk_label=label)
+                               psk_label=label, psk_rdomain=rdomain)
         if src:
             psk.psk_src = src._to_struct()
         if dst:
@@ -398,203 +444,144 @@ class PacketFilter:
 
         return psk.psk_killed
 
-    def _get_pool(self, pr, dev):
-        """Return the address pool for the specified rule."""
-        pool = PFPool(pr.rule.action, pool=pr.rule.rpool)
-        pp   = pfioc_pooladdr(ticket=pr.ticket, r_action=pr.rule.action,
-                              r_num=pr.nr, anchor=pr.anchor)
-        ioctl(dev, DIOCGETADDRS, pp.asBuffer())
+    def clear_rules(self, path=""):
+        """Clear all rules contained in the anchor 'path'."""
+        self.load_ruleset(PFRuleset(), path, PF_TRANS_RULESET)
 
-        for nr in range(pp.nr):
-            pp.nr = nr
-            ioctl(dev, DIOCGETADDR, pp.asBuffer())
-            pool._append(PFAddr(pp.addr.addr, af=pr.rule.af))
+#    def clear_altq(self, path=""):
+#        """ """
+#        self.load_ruleset(PFRuleset(), path, PF_TRANS_ALTQ)
+#
+#    def get_altqs(self):
+#        """ """
+#        pa = pfioc_altq()
+#        altqs = []
+#
+#        with open(self.dev, 'w') as d:
+#            try:
+#                ioctl(d, DIOCGETALTQS, pa.asBuffer())
+#            except IOError, (e, s):
+#                if e == ENODEV:
+#                    raise PFError("No ALTQ support in kernel")
+#                raise
+#            else:
+#                for nr in range(pa.nr):
+#                    pa.nr = nr
+#                    ioctl(d, DIOCGETALTQ, pa.asBuffer())
+#                    altqs.append(PFAltq(pa.altq))
+#
+#        return tuple(altqs)
+#
+#    def add_altq(self, altq):
+#        """ """
+#        pa = pfioc_altq(altq=altq._to_struct())
+#
+#        with open(self.dev, 'w') as d:
+#            with _PFTrans(d, "", PF_RULESET_ALTQ) as t:
+#                pa.ticket = t.array[0].ticket
+#                try:
+#                    ioctl(d, DIOCADDALTQ, pa.asBuffer())
+#                except IOError, (e, s):
+#                    if e == ENXIO:
+#                        raise PFError("qtype not configured")
+#                    elif e == ENODEV:
+#                        raise PFError("No ALTQ support in kernel")
+#                    raise
 
-        return pool
-
-    def _get_rules(self, path, dev):
-        """Return the rules corresponding to the path specified."""
-        actions = {PF_RULESET_FILTER: PF_PASS,
-                   PF_RULESET_NAT:    PF_NAT,
-                   PF_RULESET_RDR:    PF_RDR,
-                   PF_RULESET_BINAT:  PF_BINAT}
+    def _get_rules(self, path, dev, clear):
+        """ """
+        if path.endswith("/*"):
+            path = path[:-2]
 
         pr = pfioc_rule(anchor=path)
-        rules = {}
+        if clear:
+            pr.action = PF_GET_CLR_CNTR
 
-        for rs in actions.keys():
-            rules[rs] = []
+        pr.rule.action = PF_PASS
+        ioctl(dev, DIOCGETRULES, pr.asBuffer())
 
-            pr.rule.action = actions[rs]
-            ioctl(dev, DIOCGETRULES, pr.asBuffer())
+        tables = list(self.get_tables(PFTable(anchor=path)))
+        rules = []
+        for nr in range(pr.nr):
+            pr.nr = nr
+            ioctl(dev, DIOCGETRULE, pr.asBuffer())
+            if pr.anchor_call:
+                path = os.path.join(pr.anchor, pr.anchor_call)
+                rs = PFRuleset(pr.anchor_call, pr.rule)
+                rs.append(*self._get_rules(path, dev, clear))
+                rules.append(rs)
+            else:
+                rules.append(PFRule(pr.rule))
 
-            for nr in range(pr.nr):
-                pr.nr = nr
-                ioctl(dev, DIOCGETRULE, pr.asBuffer())
+        return tables + rules
 
-                if pr.anchor_call:
-                    name = os.path.basename(pr.anchor_call)
-                    if name == '*':
-                        r = PFRuleset(pr.anchor_call, pr.rule)
-                    else:
-                        r = PFRuleset(name, pr.rule)
-                        r._rules = self._get_rules(pr.anchor_call, dev)
-                else:
-                    r = PFRule(pr.rule)
-
-                r.rpool = self._get_pool(pr, dev)
-                rules[rs].append(r)
-
-        rules[PF_RULESET_TABLE] = self.get_tables(PFTable(anchor=path))
-        return rules
-
-    def get_ruleset(self, path=""):
+    def get_ruleset(self, path="", clear=False):
         """Return a PFRuleset object containing the active ruleset.
-
-        'path' is the name of the anchor to retrieve rules from.
+        
+        'path' is the path of the anchor to retrieve rules from. If 'clear' is
+        True, per-rule statistics will be cleared.
         """
         rs = PFRuleset(os.path.basename(path))
 
         with open(self.dev, 'r') as d:
-            rs._rules = self._get_rules(path, d)
+            rs.append(*self._get_rules(path, d, clear))
 
         return rs
 
-    def _load_ruleset(self, ruleset, path, dev, trans_e):
-        """Recursively load ruleset."""
-        if trans_e.rs_num == PF_RULESET_TABLE:
-            for table in ruleset.rules[trans_e.rs_num]:
-                table.anchor = path   # Force anchor ???
-                io = pfioc_table(pfrio_table=table._to_struct(),
-                                 pfrio_ticket=trans_e.ticket)
-                if table.addrs:
-                    io.pfrio_flags |= PFR_FLAG_ADDRSTOO
-                    addrs = table.addrs
-                    buf = (pfr_addr * len(addrs))(*[addr._to_struct()
-                                                    for addr in addrs])
-                    io.pfrio_buffer = addressof(buf)
-                    io.pfrio_esize = sizeof(pfr_addr)
-                    io.pfrio_size = len(addrs)
+    def _inadefine(self, table, dev, path, ticket):
+        """Define a table in the inactive ruleset."""
+        table.anchor = path
+        io = pfioc_table(pfrio_table=table._to_struct(), pfrio_ticket=ticket,
+                         pfrio_esize=sizeof(pfr_addr))
 
-                ioctl(dev, DIOCRINADEFINE, io.asBuffer())
-        else:
-            for rule in ruleset.rules[trans_e.rs_num]:
-                pp = pfioc_pooladdr()
-                pr = pfioc_rule()
+        if table.addrs:
+            io.pfrio_flags |= PFR_FLAG_ADDRSTOO
+            addrs = table.addrs
+            buf = (pfr_addr * len(addrs))(*[a._to_struct() for a in addrs])
+            io.pfrio_buffer = addressof(buf)
+            io.pfrio_size = len(addrs)
 
-                ioctl(dev, DIOCBEGINADDRS, pp.asBuffer())
+        ioctl(dev, DIOCRINADEFINE, io.asBuffer())
 
-                pr.ticket = trans_e.ticket
-                pr.pool_ticket = pp.ticket
-                pr.rule = rule._to_struct()
-                pr.anchor = path
-
-                if isinstance(rule, PFRuleset):
-                    pr.anchor_call = os.path.join(path, rule.name)
-
-                if rule.rpool:
-                    pr.rule.rpool = rule.rpool._to_struct()
-                    for addr in rule.rpool.addrs:
-                        pp.addr.addr = addr._to_struct()
-                        ioctl(dev, DIOCADDADDR, pp.asBuffer())
-
-                ioctl(dev, DIOCADDRULE, pr.asBuffer())
-
-                if isinstance(rule, PFRuleset):
-                    self._load_ruleset(rule, pr.anchor_call, dev, trans_e)
-
-    def _inadefine(self, path, dev, ticket, *tables):
-        """Define one or more tables in the inactive ruleset."""
-        for table in tables:
-            table.anchor = path
-            io = pfioc_table(pfrio_table=table._to_struct(),
-                             pfrio_ticket=ticket)
-            if table.addrs:
-                io.pfrio_flags |= PFR_FLAG_ADDRSTOO
-
-                addrs = table.addrs
-                buf = (pfr_addr * len(addrs))(*[a._to_struct() for a in addrs])
-                io.pfrio_buffer = addressof(buf)
-                io.pfrio_esize = sizeof(pfr_addr)
-                io.pfrio_size = len(addrs)
-
-            ioctl(dev, DIOCRINADEFINE, io.asBuffer())
-
-    def load_ruleset(self, ruleset, path="", rs_type=None):
+    def load_ruleset(self, ruleset, path="", *tr_type):
         """Load the given ruleset.
 
         'ruleset' must be a PFRuleset object; 'path' is the name of the anchor
-        where to load rules; 'rs_type' is one, or a tuple of, PF_RULESET_*
-        constants: if omitted, all ruleset types will be loaded.
+        where to load rules; 'tr_type' is one or more PF_TRANS_* constants: if
+        omitted, all ruleset types will be loaded.
         """
-        if isinstance(rs_type, int):
-            rs_type = (rs_type, )
-        elif rs_type is None:
-            rs_type = (PF_RULESET_TABLE, PF_RULESET_NAT, PF_RULESET_BINAT,
-                       PF_RULESET_RDR, PF_RULESET_FILTER)
-
-        pt = pfioc_trans()
-        array = (pfioc_trans_e * len(rs_type))()
-
-        for a, t in zip(array, rs_type):
-            a.rs_num = t
-            a.anchor = path
-
-        pt.size  = len(rs_type)
-        pt.esize = sizeof(pfioc_trans_e)
-        pt.array = addressof(array)
+        if not tr_type:
+            tr_type = (PF_TRANS_TABLE, PF_TRANS_RULESET)
 
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCXBEGIN, pt.asBuffer())
+            with _PFTrans(d, path, *tr_type) as t:
+                for a in t.array:
+                    if a.type == PF_TRANS_TABLE:
+                        for t in ruleset.tables:
+                            self._inadefine(t, d, path, a.ticket)
+                    elif a.type == PF_TRANS_RULESET:
+                        for r in ruleset.rules:
+                            pr = pfioc_rule(ticket=a.ticket, anchor=path,
+                                            rule=r._to_struct())
 
-            try:
-                for a in array:
-                    if a.rs_num == PF_RULESET_TABLE:
-                        self._inadefine(path, d, a.ticket,
-                                        *ruleset.rules[PF_RULESET_TABLE])
-                        continue
+                            if isinstance(r, PFRuleset):
+                                pr.anchor_call = os.path.join(path, r.name)
 
-                    for rule in ruleset.rules[a.rs_num]:
-                        pp = pfioc_pooladdr()
-                        pr = pfioc_rule()
+                            ioctl(d, DIOCADDRULE, pr.asBuffer())
 
-                        ioctl(d, DIOCBEGINADDRS, pp.asBuffer())
+                            if isinstance(r, PFRuleset):
+                                self.load_ruleset(r, pr.anchor_call, *tr_type)
 
-                        pr.ticket = a.ticket
-                        pr.pool_ticket = pp.ticket
-                        pr.rule = rule._to_struct()
-                        pr.anchor = path
-
-                        if isinstance(rule, PFRuleset):
-                            pr.anchor_call = os.path.join(path, rule.name)
-
-                        if rule.rpool:
-                            pr.rule.rpool = rule.rpool._to_struct()
-                            for addr in rule.rpool.addrs:
-                                pp.addr.addr = addr._to_struct()
-                                ioctl(d, DIOCADDADDR, pp.asBuffer())
-
-                        ioctl(d, DIOCADDRULE, pr.asBuffer())
-
-                        if isinstance(rule, PFRuleset):
-                            self.load_ruleset(rule, pr.anchor_call)
-            except IOError, (e, s):
-                ioctl(d, DIOCXROLLBACK, pt.asBuffer())
-                raise PFError, "Failed to load ruleset: %s" % s
-            else:
-                ioctl(d, DIOCXCOMMIT, pt.asBuffer())
 
     def add_tables(self, *tables):
         """Create one or more tables.
 
         'tables' must be PFTable objects; return the number of tables created.
         """
-        io = pfioc_table()
+        io = pfioc_table(pfrio_esize=sizeof(pfr_table), pfrio_size=len(tables))
 
         buffer = (pfr_table * len(tables))(*[t._to_struct() for t in tables])
         io.pfrio_buffer = addressof(buffer)
-        io.pfrio_esize = sizeof(pfr_table)
-        io.pfrio_size = len(tables)
 
         with open(self.dev, 'w') as d:
             ioctl(d, DIOCRADDTABLES, io.asBuffer())
@@ -626,7 +613,7 @@ class PacketFilter:
 
         'tables' must be PFTable objects. Return the number of tables deleted.
         """
-        io = pfioc_table()
+        io = pfioc_table(pfrio_esize=sizeof(pfr_table), pfrio_size=len(tables))
 
         buffer = (pfr_table * len(tables))()
         for (t, b) in zip(tables, buffer):
@@ -634,8 +621,6 @@ class PacketFilter:
             b.pfrt_anchor = t.anchor
 
         io.pfrio_buffer = addressof(buffer)
-        io.pfrio_esize = sizeof(pfr_table)
-        io.pfrio_size = len(tables)
 
         with open(self.dev, 'w') as d:
             ioctl(d, DIOCRDELTABLES, io.asBuffer())
@@ -649,7 +634,7 @@ class PacketFilter:
         of the tables to retrieve. Return a tuple of PFTable objects containing
         the currently-loaded tables.
         """
-        io = pfioc_table()
+        io = pfioc_table(pfrio_esize=sizeof(pfr_table))
 
         if filter is not None:
             io.pfrio_table = pfr_table(pfrt_name=filter.name,
@@ -659,25 +644,22 @@ class PacketFilter:
             while True:
                 buffer = (pfr_table * buf_size)()
                 io.pfrio_buffer = addressof(buffer)
-                io.pfrio_esize = sizeof(pfr_table)
                 io.pfrio_size = buf_size
 
                 ioctl(d, DIOCRGETTABLES, io.asBuffer())
 
-                if io.pfrio_size > buf_size:
-                    buf_size = io.pfrio_size
-                else:
+                if io.pfrio_size <= buf_size:
                     break
+                buf_size = io.pfrio_size
 
         tables = []
         for t in buffer[:io.pfrio_size]:
             try:
                 addrs = self.get_addrs(PFTable(t))
             except IOError, (e, s):
-                if e!= ESRCH:
-                    raise
+                pass       # Ignore tables of which you can't get the addresses
             else:
-                tables.append(PFTable(t, addrs))
+                tables.append(PFTable(t, *addrs))
 
         return tuple(tables)
 
@@ -700,13 +682,11 @@ class PacketFilter:
             else:
                 _addrs.append(PFTableAddr(addr))
 
-        io = pfioc_table()
+        io = pfioc_table(pfrio_table=table, pfrio_esize=sizeof(pfr_addr),
+                         pfrio_size=len(addrs))
 
         buffer = (pfr_addr * len(addrs))(*[a._to_struct() for a in _addrs])
         io.pfrio_buffer = addressof(buffer)
-        io.pfrio_table = table
-        io.pfrio_esize = sizeof(pfr_addr)
-        io.pfrio_size = len(addrs)
 
         with open(self.dev, 'w') as d:
             ioctl(d, DIOCRADDADDRS, io.asBuffer())
@@ -723,8 +703,7 @@ class PacketFilter:
         else:
             table = pfr_table(pfrt_name=table.name, pfrt_anchor=table.anchor)
 
-        io = pfioc_table()
-        io.pfrio_table = table
+        io = pfioc_table(pfrio_table=table)
 
         with open(self.dev, 'w') as d:
             ioctl(d, DIOCRCLRADDRS, io.asBuffer())
@@ -747,16 +726,14 @@ class PacketFilter:
         for addr in addrs:
             if isinstance(addr, PFTableAddr):
                 _addrs.append(addr)
-            elif isinstance(addr, basestring):
+            else:
                 _addrs.append(PFTableAddr(addr))
 
-        io = pfioc_table()
+        io = pfioc_table(pfrio_table=table, pfrio_esize=sizeof(pfr_addr),
+                         pfrio_size=len(addrs))
 
         buffer = (pfr_addr * len(addrs))(*[a._to_struct() for a in _addrs])
         io.pfrio_buffer = addressof(buffer)
-        io.pfrio_table = table
-        io.pfrio_esize = sizeof(pfr_addr)
-        io.pfrio_size = len(addrs)
 
         with open(self.dev, 'w') as d:
             ioctl(d, DIOCRDELADDRS, io.asBuffer())
@@ -780,16 +757,14 @@ class PacketFilter:
         for addr in addrs:
             if isinstance(addr, PFTableAddr):
                 _addrs.append(addr)
-            elif isinstance(addr, basestring):
+            else:
                 _addrs.append(PFTableAddr(addr))
 
-        io = pfioc_table()
+        io = pfioc_table(pfrio_table=table, pfrio_esize=sizeof(pfr_addr),
+                         pfrio_size=len(addrs))
 
         buffer = (pfr_addr * len(addrs))(*[a._to_struct() for a in _addrs])
         io.pfrio_buffer = addressof(buffer)
-        io.pfrio_table = table
-        io.pfrio_esize = sizeof(pfr_addr)
-        io.pfrio_size = len(addrs)
 
         with open(self.dev, 'w') as d:
             ioctl(d, DIOCRSETADDRS, io.asBuffer())
@@ -797,7 +772,7 @@ class PacketFilter:
         return (io.pfrio_ndel, io.pfrio_nadd, io.pfrio_nchange)
 
     def get_addrs(self, table, buf_size=10):
-        """Get all the addresses of the specified table.
+        """Get the addresses in the specified table.
 
         'table' can be either a PFTable instance or a string containing the
         table name. Return a list of PFTableAddr objects.
@@ -807,22 +782,19 @@ class PacketFilter:
         else:
             table = pfr_table(pfrt_name=table.name, pfrt_anchor=table.anchor)
 
-        io = pfioc_table()
-        io.pfrio_table = table
+        io = pfioc_table(pfrio_table=table, pfrio_esize=sizeof(pfr_addr))
 
         with open(self.dev, 'w') as d:
             while True:
                 buffer = (pfr_addr * buf_size)()
                 io.pfrio_buffer = addressof(buffer)
-                io.pfrio_esize = sizeof(pfr_addr)
                 io.pfrio_size = buf_size
 
                 ioctl(d, DIOCRGETADDRS, io.asBuffer())
 
-                if io.pfrio_size > buf_size:
-                    buf_size = io.pfrio_size
-                else:
+                if io.pfrio_size <= buf_size:
                     break
+                buf_size = io.pfrio_size
 
         return tuple([PFTableAddr(a) for a in buffer[:io.pfrio_size]])
 
@@ -833,7 +805,7 @@ class PacketFilter:
         of the tables to retrieve statistics for. Return a tuple of PFTStats
         objects.
         """
-        io = pfioc_table()
+        io = pfioc_table(pfrio_esize=sizeof(pfr_tstats))
 
         if filter is not None:
             io.pfrio_table = pfr_table(pfrt_name=filter.name,
@@ -843,26 +815,27 @@ class PacketFilter:
             while True:
                 buffer = (pfr_tstats * buf_size)()
                 io.pfrio_buffer = addressof(buffer)
-                io.pfrio_esize = sizeof(pfr_tstats)
                 io.pfrio_size = buf_size
 
                 ioctl(d, DIOCRGETTSTATS, io.asBuffer())
 
-                if io.pfrio_size > buf_size:
-                    buf_size = io.pfrio_size
-                else:
+                if io.pfrio_size <= buf_size:
                     break
+                buf_size = io.pfrio_size
 
         stats = []
         for t in buffer[:io.pfrio_size]:
             if t.pfrts_tzero:
                 stats.append(PFTStats(t))
 
-        return stats
+        return tuple(stats)
 
     def clear_tstats(self, *tables):
-        """ """
-        io = pfioc_table()
+        """Clear the statistics of one or more tables.
+
+        'tables' must be PFTable objects. Return the number of tables cleared.
+        """
+        io = pfioc_table(pfrio_esize=sizeof(pfr_table), pfrio_size=len(tables))
 
         buffer = (pfr_table * len(tables))()
         for (t, b) in zip(tables, buffer):
@@ -870,10 +843,8 @@ class PacketFilter:
             b.pfrt_anchor = t.anchor
 
         io.pfrio_buffer = addressof(buffer)
-        io.pfrio_esize = sizeof(pfr_table)
-        io.pfrio_size = len(tables)
 
         with open(self.dev, 'w') as d:
             ioctl(d, DIOCRCLRTSTATS, io.asBuffer())
 
-        return io.pfrio_nadd
+        return io.pfrio_nzero

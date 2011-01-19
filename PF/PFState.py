@@ -45,9 +45,9 @@ class PFStatePeer(PFObject):
 
     def _from_struct(self, p):
         """Initialize class attributes from a pfsync_state_peer structure."""
-        self.seqlo       = p.seqlo
-        self.seqhi       = p.seqhi
-        self.seqdiff     = p.seqdiff
+        self.seqlo       = ntohl(p.seqlo)
+        self.seqhi       = ntohl(p.seqhi)
+        self.seqdiff     = ntohl(p.seqdiff)
         self.max_win     = p.max_win
         self.mss         = p.mss
         self.state       = p.state
@@ -78,8 +78,9 @@ class PFStateKey(PFObject):
         memmove(a[0].v.a.mask.v6, c_char_p(mask), len(mask))
         memmove(a[1].v.a.mask.v6, c_char_p(mask), len(mask))
 
-        self.addr = (PFAddr(a[0], self.af), PFAddr(a[1], self.af))
-        self.port = (PFPort(ntohs(k.port[0])), PFPort(ntohs(k.port[1])))
+        self.addr    = (PFAddr(a[0], self.af), PFAddr(a[1], self.af))
+        self.port    = (PFPort(ntohs(k.port[0])), PFPort(ntohs(k.port[1])))
+        self.rdomain = k.rdomain
 
 
 class PFState(PFObject):
@@ -113,6 +114,8 @@ class PFState(PFObject):
         self.bytes       = ((b[0] << 32 | b[1]), (b[2] << 32 | b[3]))
 
         self.creatorid   = ntohl(s.creatorid) & 0xffffffff
+        #rtableid
+        #max_mss
         self.af          = s.af
         self.proto       = s.proto
         self.direction   = s.direction
@@ -121,6 +124,8 @@ class PFState(PFObject):
         self.timeout     = s.timeout
         self.sync_flags  = s.sync_flags
         self.updates     = s.updates
+        self.min_ttl     = s.min_ttl
+        self.set_tos     = s.set_tos
 
         if self.direction == PF_OUT:
             self.src         = PFStatePeer(s.src)
@@ -144,34 +149,37 @@ class PFState(PFObject):
         np       = (nk.port[0].num[0], nk.port[1].num[0])
         src, dst = self.src, self.dst
 
-        s = "%s " % self.ifname
-        s += "%s " % (getprotobynumber(self.proto) or self.proto)
+        s  = "{0.ifname} ".format(self)
+        s += "{0} ".format(getprotobynumber(self.proto) or self.proto)
 
-        s += "%s" % nk.addr[1]
+        s += "{0}".format(nk.addr[1])
         if np[1]:
-            s += (":%u" if self.af == AF_INET else "[%u]") % np[1]
+            s += (":{0}" if (self.af == AF_INET) else "[{0}]").format(np[1])
 
         if (nk.addr[1] != sk.addr[1]) or (np[1] != sp[1]):
-            s += " (%s" % sk.addr[1]
+            s += " ({0}".format(sk.addr[1])
             if sp[1]:
-                s += (":%u)" if self.af == AF_INET else "[%u])") % sp[1]
+                s += (":{0}" if (self.af == AF_INET) else "[{0}]").format(sp[1])
+            s += ")"
 
         s += (" -> " if self.direction == PF_OUT else " <- ")
 
-        s += "%s" % nk.addr[0]
+        s += "{0}".format(nk.addr[0])
         if np[0]:
-            s += (":%u" if self.af == AF_INET else "[%u]") % np[0]
+            s += (":{0}" if (self.af == AF_INET) else "[{0}]").format(np[0])
 
         if (nk.addr[0] != sk.addr[0]) or (np[0] != sp[0]):
-            s += " (%s" % sk.addr[0]
+            s += " ({0}".format(sk.addr[0])
             if sp[0]:
-                s += (":%u)" if self.af == AF_INET else "[%u])") % sp[0]
+                s += (":{0}" if (self.af == AF_INET) else "[{0}]").format(sp[0])
+            s += ")"
 
         s += "       "
         if self.proto == IPPROTO_TCP:
             if (src.state <= TCPS_TIME_WAIT and
                 dst.state <= TCPS_TIME_WAIT):
-                s += "%s:%s" % (tcpstates[src.state], tcpstates[dst.state])
+                s += "{0}:{1}".format(tcpstates[src.state],
+                                      tcpstates[dst.state])
             elif (src.state == PF_TCPS_PROXY_SRC or
                   dst.state == PF_TCPS_PROXY_SRC):
                 s += "PROXY:SRC"
@@ -179,31 +187,39 @@ class PFState(PFObject):
                   dst.state == PF_TCPS_PROXY_DST):
                 s += "PROXY:DST"
             else:
-                s += "<BAD STATE LEVELS %u:%u>" % (src.state, dst.state)
+                s += "<BAD STATE LEVELS {0.state}:{1.state}>".format(src, dst)
+
+            s += "\n"
+            for p in src, dst:
+                s += "   [{0.seqlo} + {1}]".format(p, (p.seqhi - p.seqlo))
+                if p.seqdiff:
+                    s += "(+{0.seqdiff})".format(p)
+                if src.wscale and dst.wscale:
+                    s += " wscale {0}".format(p.wscale & PF_WSCALE_MASK)
+
         elif (self.proto == IPPROTO_UDP  and
-              src.state < PFUDPS_NSTATES and dst.state < PFUDPS_NSTATES):
-            s += "%s:%s" % (states[src.state], states[dst.state])
-        elif (self.proto not in (IPPROTO_ICMP, IPPROTO_ICMPV6) and
+              src.state < PFUDPS_NSTATES and dst.state < PFUDPS_NSTATES) or \
+             (self.proto not in (IPPROTO_ICMP, IPPROTO_ICMPV6) and
               src.state < PFOTHERS_NSTATES and dst.state < PFOTHERS_NSTATES):
-            s += "%s:%s" % (states[src.state], states[dst.state])
+            s += "{0}:{1}".format(states[src.state], states[dst.state])
         else:
-            s += "%u:%u" % (src.state, dst.state)
+            s += "{0.state}:{1.state}".format(src, dst)
 
         hrs, sec = divmod(self.creation, 60)
         hrs, min = divmod(hrs, 60)
-        s += "\n   age %.2u:%.2u:%.2u" % (hrs, min, sec)
+        s += "\n   age {0:02d}:{1:02d}:{2:02d}".format(hrs, min, sec)
 
         hrs, sec = divmod(self.expire, 60)
         hrs, min = divmod(hrs, 60)
-        s += ", expires in %.2u:%.2u:%.2u" % (hrs, min, sec)
+        s += ", expires in {0:02d}:{1:02d}:{2:02d}".format(hrs, min, sec)
 
-        s += ", %u:%u pkts" % self.packets
-        s += ", %u:%u bytes" % self.bytes
+        s += ", {0.packets[0]}:{0.packets[1]} pkts".format(self)
+        s += ", {0.bytes[0]}:{0.bytes[1]} bytes".format(self)
 
-        if self.anchor != -1:
-            s += ", anchor %u" % self.anchor
+        if self.anchor != 0xffffffff:
+            s += ", anchor {0.anchor}" .format(self)
         if self.rule != -1:
-            s += ", rule %u" % self.rule
+            s += ", rule {0.rule}".format(self)
         if self.state_flags & PFSTATE_SLOPPY:
             s += ", sloppy"
         if self.state_flags & PFSTATE_PFLOW:
@@ -213,9 +229,8 @@ class PFState(PFObject):
         if self.sync_flags & PFSYNC_FLAG_NATSRCNODE:
             s += ", sticky-address\n"
 
-        s += "\n   id: %016x creatorid: %08x" % (self.id, self.creatorid)
+        s += "\n   id: {0.id:016x} creatorid: {0.creatorid:08x}".format(self)
         if self.sync_flags & PFSTATE_NOSYNC:
             s += " (no-sync)"
 
         return s
-

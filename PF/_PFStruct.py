@@ -7,7 +7,6 @@ from PFConstants import *
 
 __all__ = ['pfioc_limit',
            'pfioc_tm',
-           'pfioc_if',
            'pf_status',
            'pf_addr_wrap',
            'pf_rule_addr',
@@ -16,8 +15,6 @@ __all__ = ['pfioc_limit',
            'pfsync_state',
            'pfioc_states',
            'pfioc_state_kill',
-           'pf_pooladdr',
-           'pfioc_pooladdr',
            'pf_pool',
            'pf_rule_uid',
            'pf_rule_gid',
@@ -28,7 +25,10 @@ __all__ = ['pfioc_limit',
            'pfr_addr',
            'pfr_table',
            'pfioc_table',
-           'pfr_tstats']
+           'pfr_tstats',
+           'pfioc_iface',
+           'pf_altq',
+           'pfioc_altq']
 
 
 # Constants ####################################################################
@@ -54,7 +54,7 @@ class BufferStructure(Structure):
 
     def __init__(self, **kw):
         """Call the parent constructor."""
-        Structure.__init__(self, **kw)
+        super(BufferStructure, self).__init__(**kw)
 
     def asBuffer(self):
         """Return a buffer pointing to the Structure.
@@ -73,9 +73,6 @@ class pfioc_limit(BufferStructure):
 class pfioc_tm(BufferStructure):
     _fields_ = [("timeout",           c_int),
                 ("seconds",           c_int)]
-
-class pfioc_if(BufferStructure):
-    _fields_ = [("ifname",            c_char * IFNAMSIZ)]
 
 
 class pf_status(BufferStructure):
@@ -157,7 +154,9 @@ class pfsync_state_peer(Structure):
 
 class pfsync_state_key(Structure):
     _fields_ = [("addr",              pf_addr * 2),
-                ("port",              c_uint16 * 2)]
+                ("port",              c_uint16 * 2),
+                ("rdomain",           c_uint16),
+                ("pad",               c_uint8 * 2)]
 
 class pfsync_state(Structure):
     _fields_ = [("id",                c_uint32 * 2),
@@ -174,6 +173,8 @@ class pfsync_state(Structure):
                 ("packets",           c_uint32 * 2 * 2),
                 ("bytes",             c_uint32 * 2 * 2),
                 ("creatorid",         c_uint32),
+                ("rtableid",          c_int32 * 2),
+                ("max_mss",           c_uint16),
                 ("af",                c_uint8),
                 ("proto",             c_uint8),
                 ("direction",         c_uint8),
@@ -181,12 +182,15 @@ class pfsync_state(Structure):
                 ("state_flags",       c_uint8),
                 ("timeout",           c_uint8),
                 ("sync_flags",        c_uint8),
-                ("updates",           c_uint8)]
+                ("updates",           c_uint8),
+                ("min_ttl",           c_uint8),
+                ("set_tos",           c_uint8),
+                ("pad",               c_uint8 * 4)]
 
 class pfioc_states(BufferStructure):
     class _ps_u(Union):
         _fields_ = [("ps_buf",        c_void_p),
-                    ("ps_states",     c_void_p)]
+                    ("ps_states",     c_void_p)]      # (struct pfsync_state *)
 
     _fields_ = [("ps_len",            c_int),
                 ("ps_u",              _ps_u)]
@@ -206,7 +210,8 @@ class pfioc_state_kill(BufferStructure):
                 ("psk_dst",           pf_rule_addr),
                 ("psk_ifname",        c_char * IFNAMSIZ),
                 ("psk_label",         c_char * PF_RULE_LABEL_SIZE),
-                ("psk_killed",        c_uint)]
+                ("psk_killed",        c_uint),
+                ("psk_rdomain",       c_uint16)]
 
 
 class pf_poolhashkey(Structure):
@@ -218,35 +223,19 @@ class pf_poolhashkey(Structure):
     _fields_ = [("pfk",               _pfk)]
     _anonymous_ = ("pfk",)
 
-class pf_pooladdr(Structure):
-    _fields_ = [("addr",              pf_addr_wrap),
-                ("entries",           c_void_p * 2),  # TAILQ_ENTRY(pf_pooladdr)
-                ("ifname",            c_char * IFNAMSIZ),
-                ("kif",               c_void_p)]      # (struct pfi_kif *)
-
-class pfioc_pooladdr(BufferStructure):
-    _fields_ = [("action",            c_uint32),
-                ("ticket",            c_uint32),
-                ("nr",                c_uint32),
-                ("r_num",             c_uint32),
-                ("r_action",          c_uint8),
-                ("r_last",            c_uint8),
-                ("af",                c_uint8),
-                ("anchor",            c_char * MAXPATHLEN),
-                ("addr",              pf_pooladdr)]
-
 class pf_pool(Structure):
-    _fields_ = [("list",              c_void_p * 2),  # struct pf_palist
-                ("cur",               POINTER(pf_pooladdr)),
+    _fields_ = [("addr",              pf_addr_wrap),
                 ("key",               pf_poolhashkey),
                 ("counter",           pf_addr),
+                ("ifname",            c_char * IFNAMSIZ),
+                ("kif",               c_void_p),      # (struct pfi_kif *)
                 ("tblidx",            c_int),
                 ("proxy_port",        c_uint16 * 2),
                 ("port_op",           c_uint8),
                 ("opts",              c_uint8)]
 
 class pf_rule_ptr(Union):
-    _fields_ = [("ptr",               c_void_p),        # (pf_rule *)
+    _fields_ = [("ptr",               c_void_p),      # (struct pf_rule *)
                 ("nr",                c_uint32)]
 
 class pf_rule_uid(Structure):
@@ -271,19 +260,23 @@ class pf_rule(Structure):
                 ("skip",              pf_rule_ptr * PF_SKIP_COUNT),
                 ("label",             c_char * PF_RULE_LABEL_SIZE),
                 ("ifname",            c_char * IFNAMSIZ),
+                ("rcv_ifname",        c_char * IFNAMSIZ),
                 ("qname",             c_char * PF_QNAME_SIZE),
                 ("pqname",            c_char * PF_QNAME_SIZE),
                 ("tagname",           c_char * PF_TAG_NAME_SIZE),
                 ("match_tagname",     c_char * PF_TAG_NAME_SIZE),
                 ("overload_tblname",  c_char * PF_TABLE_NAME_SIZE),
-                ("entries",           c_void_p * 2),    # TAILQ_ENTRY(pf_rule)
-                ("rpool",             pf_pool),
+                ("entries",           c_void_p * 2),  # TAILQ_ENTRY(pf_rule)
+                ("nat",               pf_pool),
+                ("rdr",               pf_pool),
+                ("route",             pf_pool),
                 ("evaluations",       c_uint64),
                 ("packets",           c_uint64 * 2),
                 ("bytes",             c_uint64 * 2),
-                ("kif",               c_void_p),        # (struct pki_kif *)
-                ("anchor",            c_void_p),        # (struct pf_anchor *)
-                ("overload_tbl",      c_void_p),        # (struct pfr_table *)
+                ("kif",               c_void_p),      # (struct pki_kif *)
+                ("rcv_kif",           c_void_p),      # (struct pki_kif *)
+                ("anchor",            c_void_p),      # (struct pf_anchor *)
+                ("overload_tbl",      c_void_p),      # (struct pfr_table *)
                 ("os_fingerprint",    c_uint32),
                 ("rtableid",          c_int),
                 ("timeout",           c_uint32 * PFTM_MAX),
@@ -307,6 +300,7 @@ class pf_rule(Structure):
                 ("max_mss",           c_uint16),
                 ("tag",               c_uint16),
                 ("match_tag",         c_uint16),
+                ("scrub_flags",       c_uint16),
                 ("uid",               pf_rule_uid),
                 ("gid",               pf_rule_gid),
                 ("rule_flag",         c_uint32),
@@ -317,7 +311,6 @@ class pf_rule(Structure):
                 ("quick",             c_uint8),
                 ("ifnot",             c_uint8),
                 ("match_tag_not",     c_uint8),
-                ("natpass",           c_uint8),
                 ("keep_state",        c_uint8),
                 ("af",                c_uint8),
                 ("proto",             c_uint8),
@@ -334,39 +327,41 @@ class pf_rule(Structure):
                 ("anchor_relative",   c_uint8),
                 ("anchor_wildcard",   c_uint8),
                 ("flush",             c_uint8),
-                ("scrub_flags",       c_uint16),
-                ("pad2",              c_uint8 * 2),
-                ("divert",            _divert)]
+                ("pad2",              c_uint8 * 3),
+                ("divert",            _divert),
+                ("divert_packet",     _divert)]
 
 class pfioc_rule(BufferStructure):
     _fields_ = [("action",            c_uint32),
                 ("ticket",            c_uint32),
-                ("pool_ticket",       c_uint32),
                 ("nr",                c_uint32),
                 ("anchor",            c_char * MAXPATHLEN),
                 ("anchor_call",       c_char * MAXPATHLEN),
                 ("rule",              pf_rule)]
 
 class pfioc_trans_e(Structure):
-    _fields_ = [("rs_num",            c_int),
+    _fields_ = [("type",              c_int),
                 ("anchor",            c_char * MAXPATHLEN),
                 ("ticket",            c_uint32)]
 
 class pfioc_trans(BufferStructure):
     _fields_ = [("size",              c_int),
                 ("esize",             c_int),
-                ("array",             c_void_p)]
+                ("array",             c_void_p)]      # (struct pfioc_trans_e *)
 
 class pfr_addr(Structure):
-    class pfra_u(Union):
+    class _pfra_u(Union):
         _fields_ = [("pfra_ip4addr",  c_uint32),
                     ("pfra_ip6addr",  c_uint32 * 4)]
 
-    _fields_ = [("pfra_u",            pfra_u),
+    _fields_ = [("pfra_u",            _pfra_u),
+                ("pfra_ifname",       c_char * IFNAMSIZ),
                 ("pfra_af",           c_uint8),
                 ("pfra_net",          c_uint8),
                 ("pfra_not",          c_uint8),
-                ("pfra_fback",        c_uint8)]
+                ("pfra_fback",        c_uint8),
+                ("pfra_type",         c_uint8),
+                ("pad",               c_uint8 * 7)]
     _anonymous_ = ("pfra_u",)
 
 class pfr_table(Structure):
@@ -396,3 +391,65 @@ class pfr_tstats(Structure):
                 ("pfrts_tzero",       c_long),
                 ("pfrts_cnt",         c_int),
                 ("pfrts_refcnt",      c_int * PFR_REFCNT_MAX)]
+
+class pfioc_iface(BufferStructure):
+    _fields_ = [("pfiio_name",        c_char * IFNAMSIZ),
+                ("pfiio_buffer",      c_void_p),
+                ("pfiio_esize",       c_int),
+                ("pfiio_size",        c_int),
+                ("pfiio_nzero",       c_int),
+                ("pfiio_flags",       c_int)]
+
+class pf_altq(Structure):
+    class pq_u(Union):
+        class cbq_opts(Structure):
+            _fields_ = [("minburst",  c_uint),
+                        ("maxburst",  c_uint),
+                        ("pktsize",   c_uint),
+                        ("maxpktsize", c_uint),
+                        ("ns_per_byte", c_uint),
+                        ("maxidle",   c_uint),
+                        ("minidle",   c_int),
+                        ("offtime",   c_uint),
+                        ("flags",     c_int)]
+
+        class priq_opts(Structure):
+            _fields_ = [("flags",     c_int)]
+
+        class hfsc_opts(Structure):
+            _fields_ = [("rtsc_m1",   c_uint),
+                        ("rtsc_d",    c_uint),
+                        ("rtsc_m2",   c_uint),
+                        ("lssc_m1",   c_uint),
+                        ("lssc_d",    c_uint),
+                        ("lssc_m2",   c_uint),
+                        ("ulsc_m1",   c_uint),
+                        ("ulsc_d",    c_uint),
+                        ("ulsc_m2",   c_uint),
+                        ("flags",     c_int)]
+
+        _fields_ = [("cbq_opts",      cbq_opts),
+                    ("priq_opts",     priq_opts),
+                    ("hfsc_opts",     hfsc_opts)]
+
+    _fields_ = [("ifname",            c_char * IFNAMSIZ),
+                ("altq_disc",         c_void_p),
+                ("entries",           c_void_p * 2),  # TAILQ_ENTRY(pf_altq)
+                ("scheduler",         c_uint8),
+                ("tbrsize",           c_uint16),
+                ("ifbandwidth",       c_uint32),
+                ("qname",             c_char * PF_QNAME_SIZE),
+                ("parent",            c_char * PF_QNAME_SIZE),
+                ("parent_qid",        c_uint32),
+                ("bandwidth",         c_uint32),
+                ("priority",          c_uint8),
+                ("qlimit",            c_uint16),
+                ("flags",             c_uint16),
+                ("pq_u",              pq_u),
+                ("qid",               c_uint32)]
+
+class pfioc_altq(BufferStructure):
+    _fields_ = [("action",            c_uint32),
+                ("ticket",            c_uint32),
+                ("nr",                c_uint32),
+                ("altq",              pf_altq)]

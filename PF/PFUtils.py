@@ -13,7 +13,8 @@ __all__ = ['PFObject',
            'geticmpcodebynumber',
            'geticmptypebynumber',
            'ctonm',
-           'nmtoc']
+           'nmtoc',
+           'rate2str']
 
 
 # PFObject #####################################################################
@@ -43,7 +44,7 @@ class PFObject(object):
             if hasattr(self, k):
                 setattr(self, k, v)
             else:
-                raise AttributeError, "Unexpected keyword argument '%s'" % k
+                raise AttributeError("Unexpected argument: {0}".format(k))
 
     def _to_struct(self):
         raise NotImplementedError()
@@ -129,7 +130,7 @@ icmp_types = {
     ICMP_SKIP:                  "skip",
     ICMP_PHOTURIS:              "photuris"}
 
-cmp6_types = {
+icmp6_types = {
     ICMP6_DST_UNREACH:          "unreach",
     ICMP6_PACKET_TOO_BIG:       "toobig",
     ICMP6_TIME_EXCEEDED:        "timex",
@@ -164,50 +165,45 @@ def getprotobynumber(number, file="/etc/protocols"):
 
     Return the protocol name or None if no match is found.
     """
-    r = re.compile("(\S+)\s+(\d+)")
+    r = re.compile("(?P<proto>\S+)\s+(?P<num>\d+)")
 
     with open(file, 'r') as f:
         for line in f:
             m = r.match(line)
             if m:
-                proto, num = m.groups()
-                if int(num) == number:
-                    return proto
+                if int(m.group("num")) == number:
+                    return m.group("proto")
 
 def geticmpcodebynumber(type, code, af):
     """Return the ICMP code as a string."""
+    ic = icmp_codes if (af != AF_INET6) else icmp6_codes
     try:
-        if af != AF_INET6:
-            return icmp_codes[(type, code)]
-        else:
-            return icmp6_codes[(type, code)]
+        return ic[(type, code)]
     except KeyError:
         return None
 
 def geticmptypebynumber(type, af):
     """Return the ICMP type as a string."""
+    it = icmp_types if (af != AF_INET6) else icmp6_types
     try:
-        if af != AF_INET6:
-            return icmp_types[type]
-        else:
-            return icmp6_types[type]
+        return it[type]
     except KeyError:
         return None
 
 def ctonm(cidr, af):
-    """Convert CIDR notation to netmask."""
+    """Convert netmask from CIDR to dotted decimal notation."""
     try:
         l = {AF_INET: 32, AF_INET6: 128}[af]
     except KeyError:
         raise ValueError("Invalid address family")
 
     b = "1" * cidr + "0" * (l - cidr)
-    mask = "".join([chr(int(b[i:i+8], base=2)) for i in range(0, l, 8)])
+    mask = "".join([chr(int(b[i:i+8], 2)) for i in range(0, l, 8)])
 
     return inet_ntop(af, mask)
 
 def nmtoc(netmask, af):
-    """Convert netmask to CIDR notation."""
+    """Convert netmask from dotted decimal to CIDR notation."""
     cidr = 0
 
     for b in map(ord, inet_pton(af, netmask)):
@@ -217,3 +213,17 @@ def nmtoc(netmask, af):
 
     return cidr
 
+def rate2str(bw):
+    """ """
+    units = [" ", "K", "M", "G"]
+
+    for i in range(4):
+        if bw >= 1000:
+            bw /= 1000.0
+        else:
+            break
+
+    if bw.is_integer():
+        return "{0:d}{1}b".format(int(bw), units[i])
+    else:
+        return "{0:.2f}{1}b".format(bw, units[i])

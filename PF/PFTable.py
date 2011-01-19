@@ -32,22 +32,24 @@ class PFTableAddr(PFObject):
         """Initialize class attributes from a pfr_addr structure"""
         l = {AF_INET: 4, AF_INET6: 16}[a.pfra_af]
 
-        self.af    = a.pfra_af
-        self.addr  = inet_ntop(self.af, string_at(addressof(a.pfra_u), l))
-        self.mask  = ctonm(a.pfra_net, self.af)
-        self.neg   = bool(a.pfra_not)
-        self.fback = a.pfra_fback
+        self.af     = a.pfra_af
+        self.addr   = inet_ntop(self.af, string_at(addressof(a.pfra_u), l))
+        self.mask   = ctonm(a.pfra_net, self.af)
+        self.neg    = bool(a.pfra_not)
+        self.fback  = a.pfra_fback
+        self.ifname = a.pfra_ifname    # ?
+        self.type   = a.pfra_type      # ?
 
     def _from_string(self, a):
         """Initalize a new instance from a string."""
         addr_re = "(?P<neg>!)?\s*"                      + \
                   "(?P<address>(?P<ipv4>[0-9.]+)|"      + \
-                              "(?P<ipv6>[0-9a-f:]+))"    + \
+                              "(?P<ipv6>[0-9a-f:]+))"   + \
                               "(?:/(?P<mask>\d+))?\s*"
 
         m = re.compile(addr_re).match(a)
         if not m:
-            raise ValueError, "Could not parse address: '%s'" % a
+            raise ValueError("Could not parse address: '{0}'".format(a))
 
         self.neg = bool(m.group("neg"))
 
@@ -62,6 +64,8 @@ class PFTableAddr(PFObject):
         self.mask = ctonm(int(net), self.af)
 
         self.fback = 0
+        self.ifname = ""               # ?
+        self.type   = PFRKE_PLAIN      # ?
 
     def _to_struct(self):
         """Convert this instance to a pfr_addr structure."""
@@ -70,10 +74,12 @@ class PFTableAddr(PFObject):
         addr = inet_pton(self.af, self.addr)
         memmove(a.pfra_ip6addr, c_char_p(addr), len(addr))
 
-        a.pfra_af    = self.af
-        a.pfra_net   = nmtoc(self.mask, self.af)
-        a.pfra_not   = int(self.neg)
-        a.pfra_fback = self.fback
+        a.pfra_af     = self.af
+        a.pfra_net    = nmtoc(self.mask, self.af)
+        a.pfra_not    = int(self.neg)
+        a.pfra_fback  = self.fback
+        a.pfra_ifname = self.ifname
+        a.pfra_type   = self.type
 
         return a
 
@@ -88,7 +94,7 @@ class PFTableAddr(PFObject):
 
         bits = nmtoc(self.mask, self.af)
         if not ((self.af == AF_INET and bits == 32) or (bits == 128)):
-            s += "/%i" % bits
+            s += "/{0:d}".format(bits)
 
         return s
 
@@ -132,7 +138,7 @@ class PFTable(PFObject):
 
         t.pfrt_anchor = self.anchor
         t.pfrt_name   = self.name
-        t.pfrt_flags  = self.flags
+        t.pfrt_flags  = self.flags & (PFR_TFLAG_CONST|PFR_TFLAG_PERSIST)
         t.pfrt_fback  = self.fback
 
         return t
@@ -146,7 +152,10 @@ class PFTable(PFObject):
         s += ('r' if (self.flags & PFR_TFLAG_REFERENCED) else '-')
         s += ('h' if (self.flags & PFR_TFLAG_REFDANCHOR) else '-')
         s += ('C' if (self.flags & PFR_TFLAG_COUNTERS) else '-')
-        s += " %s" % self.name
+        s += "\t{0.name}".format(self)
+
+        if self.anchor:
+            s += "\t{0.anchor}".format(self)
 
         return s
 
@@ -177,18 +186,19 @@ class PFTStats(PFObject):
 
     def _to_string(self):
         """ """
-        s  = "%s\n" % self.table
-        s += "\tAddresses:   %d\n" % self.cnt
-        s += "\tCleared:     %s\n" % time.ctime(self.cleared)
-        s += "\tReferences:  [ Anchors: %-18d " % self.refcnt["anchors"]
-        s += "Rules: %-18d ]\n" % self.refcnt["rules"]
-        s += "\tEvaluations: [ NoMatch: %-18d " % self.evalcnt["nomatch"]
-        s += "Match: %-18d ]\n" % self.evalcnt["match"]
+        s  = "{0.table}\n".format(self)
+        s += "\tAddresses:   {0.cnt:d}\n".format(self)
+        s += "\tCleared:     {0}\n".format(time.ctime(self.cleared))
+        s += "\tReferences:  [ Anchors: {anchors:<18d} Rules: {rules:<18d} ]\n"
+        s += "\tEvaluations: [ NoMatch: {nomatch:<18d} Match: {match:<18d} ]\n"
+        s = s.format(**dict(self.refcnt, **self.evalcnt))
 
         pfr_ops = ("Block:", "Pass:", "XPass:")
         for o, p, b in zip(pfr_ops, self.packets["in"], self.bytes["in"]):
-            s += "\tIn/%-6s    [ Packets: %-18d Bytes: %-18d ]\n" % (o, p, b)
+            l = "\tIn/{0:<6s}    [ Packets: {1:<18d} Bytes: {2:<18d} ]\n"
+            s += l.format(o, p, b)
         for o, p, b in zip(pfr_ops, self.packets["out"], self.bytes["out"]):
-            s += "\tOut/%-6s   [ Packets: %-18d Bytes: %-18d ]\n" % (o, p, b)
+            l = "\tOut/{0:<6s}   [ Packets: {1:<18d} Bytes: {2:<18d} ]\n"
+            s += l.format(o, p, b)
 
-        return s
+        return s.rstrip()

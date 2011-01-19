@@ -1,7 +1,7 @@
 """A package for managing OpenBSD's Packet Filter."""
 
 __copyright__ = """
-Copyright (c) 2008-2009, Daniele Mazzocchio
+Copyright (c) 2008-2010, Daniele Mazzocchio
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -33,7 +33,7 @@ import os
 
 
 __author__  = "Daniele Mazzocchio <danix@kernel-panic.it>"
-__version__ = "0.0.4"
+__version__ = "0.0.5"
 
 
 class PFError(Exception):
@@ -43,9 +43,10 @@ class PFError(Exception):
 
 from PFConstants import *
 from PFStatus import *
+from PFTable import *
 from PFRule import *
 from PFState import *
-from PFTable import *
+from PFAltq import *
 from PacketFilter import *
 
 
@@ -65,7 +66,9 @@ __all__ = ['PFError',
            'PFTableAddr',
            'PFTable',
            'PFTStats',
+           'PFAltq',
            'PacketFilter']
 
+import PFConstants
 __all__.extend(os._get_exports_list(PFConstants))
-
+del PFConstants
