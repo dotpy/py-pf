@@ -28,7 +28,9 @@ __all__ = ['pfioc_limit',
            'pfr_tstats',
            'pfioc_iface',
            'pf_altq',
-           'pfioc_altq']
+           'pfioc_altq',
+           'ifreq',
+           'ifdata']
 
 
 # Constants ####################################################################
@@ -453,3 +455,56 @@ class pfioc_altq(BufferStructure):
                 ("ticket",            c_uint32),
                 ("nr",                c_uint32),
                 ("altq",              pf_altq)]
+
+class ifreq(BufferStructure):
+    class _ifr_ifru(Union):
+        class _sockaddr(Structure):
+            _fields_ = [("sa_len",    c_uint8),
+                        ("sa_family", c_uint8),
+                        ("sa_data",   c_char * 14)]
+
+        _fields_ = [("ifru_addr",     _sockaddr),
+                    ("ifru_dstaddr",  _sockaddr),
+                    ("ifru_broadaddr", _sockaddr),
+                    ("ifru_flags",    c_short),
+                    ("ifru_metric",   c_int),
+                    ("ifru_data",     c_char_p)]
+
+    _fields_ = [("ifr_name",          c_char * IFNAMSIZ),
+                ("ifr_ifru",          _ifr_ifru)]
+    _anonymous_ = ("ifr_ifru",)
+
+class ifdata(Structure):
+    _MCLPOOLS = 7
+    class _timeval(Structure):
+        _fields_ = [("tv_sec",       c_long),
+                    ("tv_usec",      c_long)]
+
+    class _mclpool(Structure):
+        _fields_ = [("mcl_grown",    c_uint),
+                    ("mcl_alive",    c_ushort),
+                    ("mcl_hwm",      c_ushort),
+                    ("mcl_cwm",      c_ushort),
+                    ("mcl_lwm",      c_ushort)]
+
+    _fields_ = [("ifi_type",         c_char),
+                ("ifi_addrlen",      c_char),
+                ("ifi_hdrlen",       c_char),
+                ("ifi_link_state",   c_char),
+                ("ifi_mtu",          c_uint32),
+                ("ifi_metric",       c_uint32),
+                ("ifi_pad",          c_uint32),
+                ("ifi_baudrate",     c_uint64),
+                ("ifi_ipackets",     c_uint64),
+                ("ifi_ierrors",      c_uint64),
+                ("ifi_opackets",     c_uint64),
+                ("ifi_oerrors",      c_uint64),
+                ("ifi_collisions",   c_uint64),
+                ("ifi_ibytes",       c_uint64),
+                ("ifi_obytes",       c_uint64),
+                ("ifi_imcasts",      c_uint64),
+                ("ifi_omcasts",      c_uint64),
+                ("ifi_iqdrops",      c_uint64),
+                ("ifi_noproto",      c_uint64),
+                ("ifi_lastchange",   _timeval),
+                ("ifi_mclpool",      _mclpool * _MCLPOOLS)]

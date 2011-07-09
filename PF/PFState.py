@@ -80,7 +80,7 @@ class PFStateKey(PFObject):
 
         self.addr    = (PFAddr(a[0], self.af), PFAddr(a[1], self.af))
         self.port    = (PFPort(ntohs(k.port[0])), PFPort(ntohs(k.port[1])))
-        self.rdomain = k.rdomain
+        self.rdomain = ntohs(k.rdomain)
 
 
 class PFState(PFObject):

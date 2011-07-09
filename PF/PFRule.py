@@ -805,6 +805,8 @@ class PFRule(PFObject):
                 l = []
                 if self.log & PF_LOG_ALL:
                     l.append("all")
+                if self.log & PF_LOG_MATCHES:
+                    l.append("matches")
                 if self.log & PF_LOG_SOCKET_LOOKUP:
                     l.append("user")
                 if self.logif:
@@ -947,12 +949,13 @@ class PFRuleset(PFRule):
     def __init__(self, name="", rule=None, **kw):
         """Check arguments and initialize instance attributes."""
         self.name    = name
-        self._rules  = []
+        self._altqs  = []
         self._tables = []
+        self._rules  = []
         super(PFRuleset, self).__init__(rule, **kw)
 
     def append(self, *items):
-        """Append one or more rules and/or tables."""
+        """Append one or more rules and/or tables and/or altqs."""
         self._rules.extend(filter(lambda i: isinstance(i, PFRule), items))
         self._tables.extend(filter(lambda i: isinstance(i, PFTable), items))
 

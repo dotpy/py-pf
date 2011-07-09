@@ -18,11 +18,11 @@ following steps to get the module installed:
 
   * unpack the tarball:
 
-      $ tar -zxvf py-PF-0.0.5.tar.gz
+      $ tar -zxvf py-PF-0.0.6.tar.gz
 
   * move to the newly created directory:
 
-      $ cd ./py-PF-0.0.5/
+      $ cd ./py-PF-0.0.6/
 
   * run the install script (as root) by typing:
 

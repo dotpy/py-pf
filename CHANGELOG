@@ -1,3 +1,8 @@
+Jul 9, 2011 -- version 0.0.6
+    - Added support for packet queueing with ALTQ; three new classes have been
+      created (PFAltqCBQ, PFAltqHFSC and PFAltqPriQ), corresponding to the
+      schedulers supported by OpenBSD.
+
 Jan 19, 2011 -- version 0.0.5
     - Updated to OpenBSD 4.8; the PF stack has undergone some major changes,
       such as removing the different rule types (nat, rdr, binat ... rules do

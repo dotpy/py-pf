@@ -12,6 +12,13 @@ from socket import *
 from PF import *
 
 
+# Configuration ################################################################
+IFNAME = "vic1"       # Harmless interface for tests
+EXT_IF = "vic0"
+INT_IF = "vic1"
+LO_IF  = "lo0"
+
+
 # Exceptions and helper functions ##############################################
 class TestError(Exception):
     pass
@@ -29,12 +36,6 @@ def test(func_name):
 
     return _test
 
-
-# Configuration ################################################################
-IFNAME = "vic1"       # Harmless interface for tests
-EXT_IF = "vic0"
-INT_IF = "vic1"
-LO_IF  = "lo0"
 
 # Main #########################################################################
 pf = PacketFilter()
@@ -67,17 +68,13 @@ def test_clear_ifflags():
 def test_clear_rules():
     pf.clear_rules()
 
-@test("PacketFilter.clear_nat()")
-def test_clear_nat():
-    pf.clear_nat()
-
 @test("PacketFilter.set_ifflag()")
 def test_set_ifflag():
     pf.set_ifflag(LO_IF, PFI_IFLAG_SKIP)
 
 @test("PacketFilter.set_debug()")
 def test_set_debug():
-    dbgs = [PF_DEBUG_NONE, PF_DEBUG_URGENT]
+    dbgs = [LOG_DEBUG, LOG_ERR]
     for dbg in dbgs:
         pf.set_debug(dbg)
         if pf.get_status().debug != dbg:
@@ -140,6 +137,29 @@ def test_clear_states():
 @test("PacketFilter.kill_states()")
 def test_kill_states():
     pf.kill_states(af=AF_INET, proto=IPPROTO_TCP, ifname=IFNAME)
+
+@test("PacketFilter.clear_altqs()")
+def test_clear_altqs():
+    pf.clear_altqs()
+    if pf.get_altqs():
+        raise TestError
+
+@test("PacketFilter.add_altqs()")
+def test_add_altqs():
+    altqs = [PFAltqCBQ(ifname=IFNAME, ifbandwidth=5000000),
+             PFAltqCBQ(ifname=IFNAME, qname="std", bandwidth=10,
+             optflags=CBQCLF_DEFCLASS),
+             PFAltqCBQ(ifname=IFNAME, qname="http", bandwidth=60, priority=2,
+             optflags=CBQCLF_BORROW|CBQCLF_RED),
+             PFAltqCBQ(ifname=IFNAME, qname="employees", parent="http",
+             bandwidth=15),
+             PFAltqCBQ(ifname=IFNAME, qname="developers", parent="http",
+             bandwidth=75, optflags=CBQCLF_BORROW),
+             PFAltqCBQ(ifname=IFNAME, qname="mail", bandwidth=10, priority=0,
+             optflags=CBQCLF_BORROW|CBQCLF_ECN)]
+    pf.add_altqs(*altqs)
+    if not pf.get_altqs():
+        raise TestError
 
 @test("PacketFilter.load_ruleset()")
 def test_load_ruleset():

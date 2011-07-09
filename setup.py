@@ -17,8 +17,8 @@ from distutils.core import setup
 
 
 __author__ = "Daniele Mazzocchio <danix@kernel-panic.it>"
-__version__ = "0.0.4"
-__date__    = "Jul 26, 2009"
+__version__ = "0.0.6"
+__date__    = "Jul 9, 2011"
 
 
 # Python versions prior 2.2.3 don't support 'classifiers' and 'download_url'
@@ -44,4 +44,3 @@ setup(name         = "py-PF",
                       "Operating System :: OpenBSD",
                       "Programming Language :: Python",
                       "Topic :: Firewalls"])
-

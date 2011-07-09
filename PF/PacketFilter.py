@@ -98,6 +98,7 @@ DIOCCLRIFFLAG    = _IOWR('D', 90, pfioc_iface)
 #DIOCKILLSRCNODES = _IOWR('D', 91, pfioc_src_node_kill)
 DIOCSETREASS     = _IOWR('D', 92, c_uint32)
 
+
 # Dictionaries for mapping strings to constants ################################
 dbg_levels  = {"emerg":           LOG_EMERG,
                "alert":           LOG_ALERT,
@@ -448,45 +449,75 @@ class PacketFilter:
         """Clear all rules contained in the anchor 'path'."""
         self.load_ruleset(PFRuleset(), path, PF_TRANS_RULESET)
 
-#    def clear_altq(self, path=""):
-#        """ """
-#        self.load_ruleset(PFRuleset(), path, PF_TRANS_ALTQ)
-#
-#    def get_altqs(self):
-#        """ """
-#        pa = pfioc_altq()
-#        altqs = []
-#
-#        with open(self.dev, 'w') as d:
-#            try:
-#                ioctl(d, DIOCGETALTQS, pa.asBuffer())
-#            except IOError, (e, s):
-#                if e == ENODEV:
-#                    raise PFError("No ALTQ support in kernel")
-#                raise
-#            else:
-#                for nr in range(pa.nr):
-#                    pa.nr = nr
-#                    ioctl(d, DIOCGETALTQ, pa.asBuffer())
-#                    altqs.append(PFAltq(pa.altq))
-#
-#        return tuple(altqs)
-#
-#    def add_altq(self, altq):
-#        """ """
-#        pa = pfioc_altq(altq=altq._to_struct())
-#
-#        with open(self.dev, 'w') as d:
-#            with _PFTrans(d, "", PF_RULESET_ALTQ) as t:
-#                pa.ticket = t.array[0].ticket
-#                try:
-#                    ioctl(d, DIOCADDALTQ, pa.asBuffer())
-#                except IOError, (e, s):
-#                    if e == ENXIO:
-#                        raise PFError("qtype not configured")
-#                    elif e == ENODEV:
-#                        raise PFError("No ALTQ support in kernel")
-#                    raise
+    def clear_altqs(self):
+        """Clear all ALTQ disciplines and queues."""
+        self.load_ruleset(PFRuleset(), "", PF_TRANS_ALTQ)
+
+    def get_altqs(self):
+        """Retrieve the currently loaded ALTQ disciplines and queues.
+
+        Return a tuple of PFAltq* objects.
+        """
+        qtypes = {ALTQT_CBQ:  PFAltqCBQ,
+                  ALTQT_HFSC: PFAltqHFSC,
+                  ALTQT_PRIQ: PFAltqPriQ}
+
+        pa = pfioc_altq()
+        altqs = []
+
+        with open(self.dev, 'w') as d:
+            try:
+                ioctl(d, DIOCGETALTQS, pa.asBuffer())
+            except IOError, (e, s):
+                if e == ENODEV:
+                    raise PFError("No ALTQ support in kernel")
+                raise
+            else:
+                for nr in range(pa.nr):
+                    pa.nr = nr
+                    ioctl(d, DIOCGETALTQ, pa.asBuffer())
+                    altqs.append(qtypes[pa.altq.scheduler](pa.altq))
+
+        return tuple(altqs)
+
+    def _add_altq(self, altq, ticket, dev):
+        """Load an ALTQ rule and return its queue ID."""
+        pa = pfioc_altq(altq=altq._to_struct())
+        pa.ticket = ticket
+        try:
+            ioctl(dev, DIOCADDALTQ, pa.asBuffer())
+        except IOError, (e, s):
+            if e == ENXIO:
+                raise PFError("qtype not configured")
+            elif e == ENODEV:
+                raise PFError("No ALTQ support in kernel")
+            raise
+
+        return pa.altq.qid
+
+    def add_altqs(self, *altqs):
+        """Load an ALTQ discipline and one or more queues on an interface.
+
+        'altqs' must be PFAltq* objects.
+        """
+        qids = {}      # Dict for recording queue IDs as they are loaded
+
+        with open(self.dev, 'w') as d:
+            with _PFTrans(d, "", PF_TRANS_ALTQ) as t:
+                for altq in altqs:
+                    altq.parent_qid = qids.get(altq.parent, 0)
+                    pa = pfioc_altq(altq=altq._to_struct())
+                    pa.ticket = t.array[0].ticket
+                    try:
+                        ioctl(d, DIOCADDALTQ, pa.asBuffer())
+                    except IOError, (e, s):
+                        if e == ENXIO:
+                            raise PFError("qtype not configured")
+                        elif e == ENODEV:
+                            raise PFError("No ALTQ support in kernel")
+                        raise
+                    else:
+                        qids[altq.qname] = pa.altq.qid
 
     def _get_rules(self, path, dev, clear):
         """ """
@@ -571,7 +602,6 @@ class PacketFilter:
 
                             if isinstance(r, PFRuleset):
                                 self.load_ruleset(r, pr.anchor_call, *tr_type)
-
 
     def add_tables(self, *tables):
         """Create one or more tables.

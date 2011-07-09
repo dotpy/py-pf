@@ -4,8 +4,11 @@
 from __future__ import with_statement
 import re
 from socket import *
+from ctypes import addressof
+from fcntl import ioctl
 
 from PF.PFConstants import *
+from PF._PFStruct import ifreq, ifdata
 
 
 __all__ = ['PFObject',
@@ -14,7 +17,8 @@ __all__ = ['PFObject',
            'geticmptypebynumber',
            'ctonm',
            'nmtoc',
-           'rate2str']
+           'rate2str',
+           'getifmtu']
 
 
 # PFObject #####################################################################
@@ -166,7 +170,6 @@ def getprotobynumber(number, file="/etc/protocols"):
     Return the protocol name or None if no match is found.
     """
     r = re.compile("(?P<proto>\S+)\s+(?P<num>\d+)")
-
     with open(file, 'r') as f:
         for line in f:
             m = r.match(line)
@@ -205,7 +208,6 @@ def ctonm(cidr, af):
 def nmtoc(netmask, af):
     """Convert netmask from dotted decimal to CIDR notation."""
     cidr = 0
-
     for b in map(ord, inet_pton(af, netmask)):
         while b:
             cidr += b & 1
@@ -216,7 +218,6 @@ def nmtoc(netmask, af):
 def rate2str(bw):
     """ """
     units = [" ", "K", "M", "G"]
-
     for i in range(4):
         if bw >= 1000:
             bw /= 1000.0
@@ -227,3 +228,21 @@ def rate2str(bw):
         return "{0:d}{1}b".format(int(bw), units[i])
     else:
         return "{0:.2f}{1}b".format(bw, units[i])
+
+def getifmtu(ifname):
+    """Quick hack to get MTU and speed for a specified interface."""
+    SIOCGIFMTU = 0xc020697e     # _IOWR('i', 126, ifreq)
+    s = socket(AF_INET, SOCK_DGRAM)
+    ifrdat = ifdata()
+    ifr = ifreq(ifr_name=ifname, ifr_data=addressof(ifrdat))
+
+    try:
+        ioctl(s, SIOCGIFMTU, ifr.asBuffer())
+    except IOError:
+        pass
+
+    s.close()
+    mtu = (ifr.ifru_metric if (ifr.ifru_metric > 0) else 1500)
+    speed = ifrdat.ifi_baudrate
+
+    return (mtu, speed)

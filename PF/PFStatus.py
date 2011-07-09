@@ -130,7 +130,7 @@ class PFStatus(PFObject):
             if self.since:
                 s += "{0:>14.1f}/s".format(float(v)/runtime)
 
-        s += "\nSource Tracking Table"
+        s += "\nSource Tracking Table\n"
         s += "  {0:<25} {1.src_nodes:>14d}".format("current entries", self)
         for k, v in self.scnt.iteritems():
             s += "\n  {0:<25} {1:>14d} ".format(k, v)

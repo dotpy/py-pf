@@ -79,6 +79,7 @@ PF_LOG                  = 0x01
 PF_LOG_ALL              = 0x02
 PF_LOG_SOCKET_LOOKUP    = 0x04
 PF_LOG_FORCE            = 0x08
+PF_LOG_MATCHES          = 0x10
 
 # Address types
 PF_ADDR_ADDRMASK        = 0
@@ -246,7 +247,6 @@ PFR_TFLAG_USRMASK       = 0x43
 PFR_TFLAG_SETMASK       = 0x3C
 PFR_TFLAG_ALLMASK       = 0x7F
 
-PFR_FLAG_ATOMIC         = 0x00000001
 PFR_FLAG_DUMMY          = 0x00000002
 PFR_FLAG_FEEDBACK       = 0x00000004
 PFR_FLAG_CLSTATS        = 0x00000008
