@@ -234,7 +234,7 @@ def getifmtu(ifname):
     SIOCGIFMTU = 0xc020697e     # _IOWR('i', 126, ifreq)
     s = socket(AF_INET, SOCK_DGRAM)
     ifrdat = ifdata()
-    ifr = ifreq(ifr_name=ifname, ifr_data=addressof(ifrdat))
+    ifr = ifreq(ifr_name=ifname, ifru_data=addressof(ifrdat))
 
     try:
         ioctl(s, SIOCGIFMTU, ifr.asBuffer())
