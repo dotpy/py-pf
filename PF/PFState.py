@@ -64,23 +64,24 @@ class PFStateKey(PFObject):
 
     _struct_type = pfsync_state_key
 
-    def __init__(self, key, af):
+    def __init__(self, key):
         """Check argument and initialize class attributes."""
-        self.af = af
         super(PFStateKey, self).__init__(key)
 
     def _from_struct(self, k):
         """Initialize class attributes from a pfsync_state_key structure."""
         a = (pf_addr_wrap(), pf_addr_wrap())
+        
 
         a[0].v.a.addr, a[1].v.a.addr = k.addr
-        mask = '\xff' * {AF_INET: 4, AF_INET6: 16}[self.af]
+        mask = '\xff' * {AF_INET: 4, AF_INET6: 16}[k.af]
         memmove(a[0].v.a.mask.v6, c_char_p(mask), len(mask))
         memmove(a[1].v.a.mask.v6, c_char_p(mask), len(mask))
 
-        self.addr    = (PFAddr(a[0], self.af), PFAddr(a[1], self.af))
+        self.addr    = (PFAddr(a[0], k.af), PFAddr(a[1], k.af))
         self.port    = (PFPort(ntohs(k.port[0])), PFPort(ntohs(k.port[1])))
         self.rdomain = ntohs(k.rdomain)
+        self.af      = k.af
 
 
 class PFState(PFObject):
@@ -95,50 +96,51 @@ class PFState(PFObject):
     def _from_struct(self, s):
         """Initialize class attributes from a pfsync_state structure."""
         id = unpack('>II', string_at(addressof(s.id), sizeof(s.id)))
-        self.id          = id[0] << 32 | id[1]
-        self.ifname      = s.ifname
+        self.id              = id[0] << 32 | id[1]
+        self.ifname          = s.ifname
 
-        a                = pf_addr_wrap()
-        a.v.a.addr       = s.rt_addr
-        self.rt_addr     = PFAddr(a, s.af)
+        a                    = pf_addr_wrap()
+        a.v.a.addr           = s.rt_addr
+        self.rt_addr         = PFAddr(a, s.af)
 
-        self.rule        = ntohl(s.rule)
-        self.anchor      = ntohl(s.anchor)
-        self.nat_rule    = ntohl(s.nat_rule)
-        self.creation    = ntohl(s.creation)
-        self.expire      = ntohl(s.expire)
+        self.rule            = ntohl(s.rule)
+        self.anchor          = ntohl(s.anchor)
+        self.nat_rule        = ntohl(s.nat_rule)
+        self.creation        = ntohl(s.creation)
+        self.expire          = ntohl(s.expire)
 
         p = unpack('>IIII', string_at(addressof(s.packets), sizeof(s.packets)))
-        self.packets     = ((p[0] << 32 | p[1]), (p[2] << 32 | p[3]))
+        self.packets         = ((p[0] << 32 | p[1]), (p[2] << 32 | p[3]))
         b = unpack('>IIII', string_at(addressof(s.bytes), sizeof(s.bytes)))
-        self.bytes       = ((b[0] << 32 | b[1]), (b[2] << 32 | b[3]))
+        self.bytes           = ((b[0] << 32 | b[1]), (b[2] << 32 | b[3]))
 
-        self.creatorid   = ntohl(s.creatorid) & 0xffffffff
+        self.creatorid       = ntohl(s.creatorid) & 0xffffffff
         #rtableid
         #max_mss
-        self.af          = s.af
-        self.proto       = s.proto
-        self.direction   = s.direction
-        self.log         = s.log
-        self.state_flags = s.state_flags
-        self.timeout     = s.timeout
-        self.sync_flags  = s.sync_flags
-        self.updates     = s.updates
-        self.min_ttl     = s.min_ttl
-        self.set_tos     = s.set_tos
+        self.af              = s.af
+        self.proto           = s.proto
+        self.direction       = s.direction
+        self.log             = s.log
+        self.state_flags     = s.state_flags
+        self.timeout         = s.timeout
+        self.sync_flags      = s.sync_flags
+        self.updates         = s.updates
+        self.min_ttl         = s.min_ttl
+        self.set_tos         = s.set_tos
+        self.all_state_flags = s.all_state_flags
 
         if self.direction == PF_OUT:
             self.src         = PFStatePeer(s.src)
             self.dst         = PFStatePeer(s.dst)
-            self.sk          = PFStateKey(s.key[PF_SK_STACK], s.af)
-            self.nk          = PFStateKey(s.key[PF_SK_WIRE], s.af)
+            self.sk          = PFStateKey(s.key[PF_SK_STACK])
+            self.nk          = PFStateKey(s.key[PF_SK_WIRE])
             if self.proto in (IPPROTO_ICMP, IPPROTO_ICMPV6):
                 self.sk.port = (self.nk.port[0], self.sk.port[1])
         else:
             self.src         = PFStatePeer(s.dst)
             self.dst         = PFStatePeer(s.src)
-            self.sk          = PFStateKey(s.key[PF_SK_WIRE], s.af)
-            self.nk          = PFStateKey(s.key[PF_SK_STACK], s.af)
+            self.sk          = PFStateKey(s.key[PF_SK_WIRE])
+            self.nk          = PFStateKey(s.key[PF_SK_STACK])
             if self.proto in (IPPROTO_ICMP, IPPROTO_ICMPV6):
                 self.sk.port = (self.sk.port[0], self.nk.port[1])
 

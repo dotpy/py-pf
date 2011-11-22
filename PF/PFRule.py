@@ -452,14 +452,16 @@ class PFRuleAddr(PFObject):
     def __init__(self, addr=None, port=None, neg=False, **kw):
         """Check arguments and initialize instance attributes."""
         if isinstance(addr, self._struct_type):
-            self.addr = PFAddr(addr.addr, kw['af'])
-            self.port = PFPort(tuple(map(ntohs, addr.port)),
-                               kw['proto'], addr.port_op)
-            self.neg  = bool(addr.neg)
+            self.addr   = PFAddr(addr.addr, kw['af'])
+            self.port   = PFPort(tuple(map(ntohs, addr.port)),
+                                 kw['proto'], addr.port_op)
+            self.neg    = bool(addr.neg)
+            self.weight = addr.weight
         else:
-            self.addr = addr or PFAddr()
-            self.port = port or PFPort()
-            self.neg  = bool(neg)
+            self.addr   = addr or PFAddr()
+            self.port   = port or PFPort()
+            self.neg    = bool(neg)
+            self.weight = 0
 
     def _to_struct(self):
         """Convert this instance to a pf_rule_addr structure."""
@@ -469,6 +471,7 @@ class PFRuleAddr(PFObject):
         a.port    = tuple(map(htons, self.port.num))
         a.port_op = self.port.op
         a.neg     = int(self.neg)
+        a.weight  = self.weight
 
         return a
 
@@ -518,6 +521,9 @@ class PFPool(PFObject):
         self.counter    = p.counter
         self.ifname     = p.ifname
         self.tblidx     = p.tblidx
+        self.states     = p.states
+        self.curweight  = p.curweight
+        self.weight     = p.weight
         self.proxy_port = PFPort(tuple(p.proxy_port), op=p.port_op)
         self.opts       = p.opts
 
@@ -530,6 +536,9 @@ class PFPool(PFObject):
         else:
             p.addr       = self.addr._to_struct()
         p.ifname     = self.ifname
+        p.states     = self.states
+        p.curweight  = self.curweight
+        p.weight     = self.weight
         p.proxy_port = self.proxy_port.num
         p.port_op    = self.proxy_port.op
         p.opts       = self.opts
@@ -570,11 +579,13 @@ class PFPool(PFObject):
             s += " source-hash {0.key}".format(self)
         elif opt == PF_POOL_ROUNDROBIN:
             s += " round-robin"
+        elif opt == PF_POOL_LEASTSTATES:
+            s += " least-states"
 
         if self.opts & PF_POOL_STICKYADDR:
             s += " sticky-address"
 
-        if (self.id == PF_NAT) and (p1 == p2 == 0):
+        if (self.id == PF_POOL_NAT) and (p1 == p2 == 0):
             s += " static-port"
 
         return s
@@ -589,7 +600,8 @@ class PFRule(PFObject):
     def __init__(self, rule=None, **kw):
         """Check arguments and initialize instance attributes."""
         if rule is None:
-            rule = pf_rule(rtableid=-1)
+            rule = pf_rule(rtableid=-1, onrdomain=-1)
+            rule.prio[0] = PF_PRIO_NOTSET
         super(PFRule, self).__init__(rule, **kw)
 
     def _from_struct(self, r):
@@ -622,6 +634,7 @@ class PFRule(PFObject):
         self.bytes             = tuple(r.bytes)
         self.os_fingerprint    = r.os_fingerprint
         self.rtableid          = r.rtableid
+        self.onrdomain         = r.onrdomain
         self.timeout           = list(r.timeout)
         self.states_cur        = r.states_cur
         self.states_tot        = r.states_tot
@@ -673,8 +686,21 @@ class PFRule(PFObject):
         self.anchor_relative   = r.anchor_relative
         self.anchor_wildcard   = r.anchor_wildcard
         self.flush             = r.flush
-        #divert
-        #divert_packet
+        self.prio              = tuple(r.prio)
+        self.divert            = (None, None)
+        self.divert_packet     = (None, None)
+        if r.divert.port:
+            if azero(r.divert.addr.v6):
+                addr = None
+            else:
+                l = {AF_INET: 4, AF_INET6: 16}[self.af]
+                addr = PFAddr(inet_ntop(r.af,
+                                        string_at(addressof(r.divert.addr), l)))
+            self.divert = (addr, PFPort(ntohs(r.divert.port)))
+        if r.divert_packet.port:
+            self.divert_packet = PFPort(ntohs(r.divert_packet.port))
+        else:
+            self.divert_packet = None
 
     def _to_struct(self):
         """Convert a PFRule object to a pf_rule structure."""
@@ -700,6 +726,7 @@ class PFRule(PFObject):
         r.bytes             = self.bytes
         r.os_fingerprint    = self.os_fingerprint
         r.rtableid          = self.rtableid
+        r.onrdomain         = self.onrdomain
         for i, t in enumerate(self.timeout):
             r.timeout[i] = t
         r.states_cur        = self.states_cur
@@ -748,8 +775,13 @@ class PFRule(PFObject):
         r.anchor_relative   = self.anchor_relative
         r.anchor_wildcard   = self.anchor_wildcard
         r.flush             = self.flush
-        #divert
-        #divert_packet
+        r.prio[:]           = self.prio
+        if self.divert[0]:
+            r.divert.addr   = inet_pton(self.af, self.divert[0].addr)
+        if self.divert[1]:
+            r.divert.port   = htons(self.divert[1].num[0])
+        if self.divert_packet:
+            r.divert_packet.port = htons(self.divert_packet.num[0])
 
         return r
 
@@ -822,6 +854,12 @@ class PFRule(PFObject):
             else:
                 s += " on {0.ifname}".format(self)
 
+        if self.onrdomain >= 0:
+            if self.ifnot:
+                s += " on ! rdomain {0.onrdomain}".format(self)
+            else:
+                s += " on rdomain {0.onrdomain}".format(self)
+
         if self.af:
             if self.af == AF_INET:
                 s += " inet"
@@ -871,10 +909,17 @@ class PFRule(PFObject):
         if self.tos:
             s += " tos {0.tos:#04x}".format(self)
 
+        has_opts = False
+        if (self.max_states or self.max_src_nodes or self.max_src_states)  or \
+           self.rule_flag & (PFRULE_NOSYNC|PFRULE_SRCTRACK|PFRULE_IFBOUND) or \
+           self.rule_flag & (PFRULE_STATESLOPPY|PFRULE_PFLOW)              or \
+           filter(None, self.timeout):
+            has_opts = True
+
         if not self.keep_state and self.action == PF_PASS and \
            not isinstance(self, PFRuleset):
             s += " no state"
-        elif self.keep_state == PF_STATE_NORMAL:
+        elif (self.keep_state == PF_STATE_NORMAL) and has_opts:
             s += " keep state"
         elif self.keep_state == PF_STATE_MODULATE:
             s += " modulate state"
@@ -923,21 +968,33 @@ class PFRule(PFObject):
         if self.rtableid != -1:
             s += " rtable {0.rtableid}".format(self)
 
-        # divert
+        if self.divert[1]:
+            if not self.divert[0]:
+                s += " divert-reply"
+            else:
+                s += " divert-to {0} port {1}".format(*self.divert)
+
+        if self.divert_packet:
+            s += " divert-packet port {0}".format(self.divert_packet)
 
         if not isinstance(self, PFRuleset):
             if self.nat.addr.type != PF_ADDR_NONE:
                 s += " nat-to {0.nat}".format(self)
             if self.rdr.addr.type != PF_ADDR_NONE:
                 s += " rdr-to {0.rdr}".format(self)
+
         if self.rt == PF_ROUTETO:
             s += " route-to {0.route}".format(self)
         elif self.rt == PF_REPLYTO:
             s += " reply-to {0.route}".format(self)
         elif self.rt == PF_DUPTO:
             s += " dup-to {0.route}".format(self)
-        elif self.rt == PF_FASTROUTE:
-            s += " fastroute"
+
+        if self.prio[0] != PF_PRIO_NOTSET:
+            if self.prio[0] == self.prio[1]:
+                s += " prio {0}".format(self.prio[0])
+            else:
+                s += " prio ({0}, {1})".format(*self.prio)
 
         return s
 

@@ -7,12 +7,13 @@ the current status of the Packet Filter.
 import time
 from socket import ntohl
 
-from PF._PFStruct import pf_status
+from PF._PFStruct import pf_status, pfi_kif
 from PF.PFConstants import *
 from PF.PFUtils import PFObject
 
 
-__all__ = ['PFStatus']
+__all__ = ['PFStatus',
+           'PFIface']
 
 
 # Dictionaries for mapping constants to strings ################################
@@ -150,3 +151,41 @@ class PFStatus(PFObject):
                 s += "{0:>14.1f}/s".format(float(v)/runtime)
 
         return s
+
+class PFIface(PFObject):
+    """Class representing a network interface"""
+
+    _struct_type = pfi_kif
+
+    def __init__(self, iface):
+        """Check argument and initialize class attributes."""
+        super(PFIface, self).__init__(iface)
+
+    def _from_struct(self, i):
+        """Initialize class attributes from a pfi_kif structure."""
+        self.name       = i.pfik_name
+        self.packets    = {'in':  ((i.pfik_packets[0][0][PF_PASS],
+                                    i.pfik_packets[1][0][PF_PASS]),
+                                   (i.pfik_packets[0][0][PF_DROP],
+                                    i.pfik_packets[1][0][PF_DROP])),
+                           'out': ((i.pfik_packets[0][1][PF_PASS],
+                                    i.pfik_packets[1][1][PF_PASS]),
+                                   (i.pfik_packets[0][1][PF_DROP],
+                                    i.pfik_packets[1][1][PF_DROP]))}
+        self.bytes      = {'in':  ((i.pfik_bytes[0][0][PF_PASS],
+                                    i.pfik_bytes[1][0][PF_PASS]),
+                                   (i.pfik_bytes[0][0][PF_DROP],
+                                    i.pfik_bytes[1][0][PF_DROP])),
+                           'out': ((i.pfik_bytes[0][1][PF_PASS],
+                                    i.pfik_bytes[1][1][PF_PASS]),
+                                   (i.pfik_bytes[0][1][PF_DROP],
+                                    i.pfik_bytes[1][1][PF_DROP]))}
+        self.flags      = i.pfik_flags
+        self.flags_new  = i.pfik_flags_new
+        self.states     = i.pfik_states
+        self.rules      = i.pfik_rules
+        self.routes     = i.pfik_routes
+
+    def _to_string(self):
+        """Return a string containing the description of the interface"""
+        return self.name

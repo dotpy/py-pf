@@ -8,7 +8,7 @@ from ctypes import addressof
 from fcntl import ioctl
 
 from PF.PFConstants import *
-from PF._PFStruct import ifreq, ifdata
+from PF._PFStruct import ifreq, if_data
 
 
 __all__ = ['PFObject',
@@ -233,7 +233,7 @@ def getifmtu(ifname):
     """Quick hack to get MTU and speed for a specified interface."""
     SIOCGIFMTU = 0xc020697e     # _IOWR('i', 126, ifreq)
     s = socket(AF_INET, SOCK_DGRAM)
-    ifrdat = ifdata()
+    ifrdat = if_data()
     ifr = ifreq(ifr_name=ifname, ifru_data=addressof(ifrdat))
 
     try:

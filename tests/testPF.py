@@ -29,8 +29,9 @@ def test(func_name):
         print "Testing %-53s" % func_name,
         try:
             test_func()
-        except Exception:
+        except Exception, e:
             print "failed"
+            print "    ", e
         else:
             print "successful"
 
@@ -63,14 +64,17 @@ def test_enable_altq():
 @test("PacketFilter.clear_ifflags()")
 def test_clear_ifflags():
     pf.clear_ifflags(LO_IF)
-
-@test("PacketFilter.clear_rules()")
-def test_clear_rules():
-    pf.clear_rules()
+    i = pf.get_ifaces(LO_IF)
+    if i.flags & PFI_IFLAG_SKIP:
+        raise TestError
 
 @test("PacketFilter.set_ifflag()")
-def test_set_ifflag():
-    pf.set_ifflag(LO_IF, PFI_IFLAG_SKIP)
+def test_set_ifflags():
+    pf.set_ifflags(LO_IF, PFI_IFLAG_SKIP)
+    ifs = pf.get_ifaces()
+    i = [i for i in ifs if i.name == LO_IF][0]
+    if not (i.flags & PFI_IFLAG_SKIP):
+        raise TestError
 
 @test("PacketFilter.set_debug()")
 def test_set_debug():
@@ -124,20 +128,6 @@ def test_clear_status():
     if pf.get_status().since <= since:
         raise TestError
 
-@test("PacketFilter.get_states()")
-def test_get_states():
-    for s in pf.get_states():
-        if not isinstance(s, PFState):
-            raise TestError
-
-@test("PacketFilter.clear_states()")
-def test_clear_states():
-    pf.clear_states(IFNAME)
-
-@test("PacketFilter.kill_states()")
-def test_kill_states():
-    pf.kill_states(af=AF_INET, proto=IPPROTO_TCP, ifname=IFNAME)
-
 @test("PacketFilter.clear_altqs()")
 def test_clear_altqs():
     pf.clear_altqs()
@@ -146,101 +136,119 @@ def test_clear_altqs():
 
 @test("PacketFilter.add_altqs()")
 def test_add_altqs():
-    altqs = [PFAltqCBQ(ifname=IFNAME, ifbandwidth=5000000),
-             PFAltqCBQ(ifname=IFNAME, qname="std", bandwidth=10,
-             optflags=CBQCLF_DEFCLASS),
-             PFAltqCBQ(ifname=IFNAME, qname="http", bandwidth=60, priority=2,
-             optflags=CBQCLF_BORROW|CBQCLF_RED),
+    ifbw = 5000000   # ifbandwidth
+    altqs = [PFAltqCBQ(ifname=IFNAME, ifbandwidth=ifbw),
+             PFAltqCBQ(ifname=IFNAME, qname="root_vic1",
+                       ifbandwidth=ifbw, bandwidth=ifbw,
+                       optflags=CBQCLF_ROOTCLASS|CBQCLF_WRR),
+             PFAltqCBQ(ifname=IFNAME, qname="std", parent="root_vic1",
+                       ifbandwidth=ifbw, bandwidth=10,
+                       optflags=CBQCLF_DEFCLASS),
+             PFAltqCBQ(ifname=IFNAME, qname="http", parent="root_vic1",
+                       ifbandwidth=ifbw, bandwidth=60, priority=2,
+                       optflags=CBQCLF_BORROW|CBQCLF_RED),
              PFAltqCBQ(ifname=IFNAME, qname="employees", parent="http",
-             bandwidth=15),
+                       ifbandwidth=ifbw, bandwidth=15),
              PFAltqCBQ(ifname=IFNAME, qname="developers", parent="http",
-             bandwidth=75, optflags=CBQCLF_BORROW),
-             PFAltqCBQ(ifname=IFNAME, qname="mail", bandwidth=10, priority=0,
-             optflags=CBQCLF_BORROW|CBQCLF_ECN)]
+                       ifbandwidth=ifbw, bandwidth=75,
+                       optflags=CBQCLF_BORROW),
+             PFAltqCBQ(ifname=IFNAME, qname="mail", parent="root_vic1",
+                       ifbandwidth=ifbw, bandwidth=10, priority=0,
+                       optflags=CBQCLF_BORROW|CBQCLF_ECN)]
+
     pf.add_altqs(*altqs)
     if not pf.get_altqs():
+        raise TestError
+
+@test("PacketFilter.clear_rules()")
+def test_clear_rules():
+    pf.clear_rules()
+    if pf.get_ruleset().rules:
         raise TestError
 
 @test("PacketFilter.load_ruleset()")
 def test_load_ruleset():
     ext_if = PFAddr(type=PF_ADDR_DYNIFTL, ifname=EXT_IF)
 
-    r2 = {PF_RULESET_TABLE:
-              [PFTable("test3", "15.0.0.0/24", "! 10.1.2.3")],
-          PF_RULESET_NAT:
-              [PFRule(action=PF_NAT,
-                      ifname=EXT_IF,
-                      src=PFRuleAddr(ext_if, neg=True),
-                      dst=PFRuleAddr(PFAddr("<test3>"),
-                                     PFPort("pop3", IPPROTO_TCP)),
-                      rpool=PFPool(PF_NAT, ext_if))],
-          PF_RULESET_FILTER:
-              [PFRule(action=PF_DROP,
-                      ifname=INT_IF,
-                      proto=IPPROTO_ICMP,
-                      type=ICMP_UNREACH+1,
-                      code=ICMP_UNREACH_NEEDFRAG+1,
-                      keep_state=PF_STATE_NORMAL)]}
+    tables = [PFTable("web_srv", "10.0.1.20", "10.0.1.21", "10.0.1.22")]
+    rules = [
+        # match out on $ext_if inet from !($ext_if) to any nat-to ($ext_if)
+        PFRule(action=PF_MATCH,
+               direction=PF_OUT,
+               ifname=EXT_IF,
+               af=AF_INET,
+               src=PFRuleAddr(ext_if, neg=True),
+               nat=PFPool(PF_POOL_NAT, ext_if)),
+        # block in log
+        PFRule(action=PF_DROP,
+               direction=PF_IN,
+               log=PF_LOG),
+        # pass out quick
+        PFRule(action=PF_PASS,
+               direction=PF_OUT,
+               quick=True,
+               flags="S", flagset="SA",
+               keep_state=PF_STATE_NORMAL),
+        # anchor "test_rs"
+        PFRuleset("test_rs"),
+        # pass in on $ext_if inet proto tcp from any to $ext_if port ssh
+        PFRule(action=PF_PASS,
+               direction=PF_IN,
+               ifname=EXT_IF,
+               af=AF_INET,
+               proto=IPPROTO_TCP,
+               dst=PFRuleAddr(ext_if, PFPort("ssh", IPPROTO_TCP)),
+               flags="S", flagset="SA",
+               keep_state=PF_STATE_NORMAL),
+        # pass in on $ext_if inet proto tcp to $ext_if port 80 \
+        #     rdr-to <web_srv> round-robin sticky-address
+        PFRule(action=PF_PASS,
+               direction=PF_IN,
+               ifname=EXT_IF,
+               af=AF_INET,
+               proto=IPPROTO_TCP,
+               dst=PFRuleAddr(ext_if, PFPort(80, IPPROTO_TCP)),
+               flags="S", flagset="SA",
+               keep_state=PF_STATE_NORMAL,
+               rdr=PFPool(PF_POOL_RDR, PFAddr("<web_srv>"),
+                          opts=PF_POOL_ROUNDROBIN|PF_POOL_STICKYADDR)),
+        # pass in inet proto icmp all icmp-type echoreq
+        PFRule(action=PF_PASS,
+               direction=PF_IN,
+               af=AF_INET,
+               proto=IPPROTO_ICMP,
+               type=ICMP_ECHO+1,
+               keep_state=PF_STATE_NORMAL),
+        # pass in on $int_if
+        PFRule(action=PF_PASS,
+               direction=PF_IN,
+               ifname=INT_IF,
+               flags="S", flagset="SA",
+               keep_state=PF_STATE_NORMAL)]
 
-    r1 = {PF_RULESET_TABLE:
-              [PFTable("test1", "10.0.0.1", "10.0.0.2", "172.16.1.0/24"),
-               PFTable("test2", "192.168.10.0/27", flags=PFR_TFLAG_CONST)],
-          PF_RULESET_NAT:
-              [PFRule(action=PF_NAT,
-                      ifname=EXT_IF,
-                      src=PFRuleAddr(ext_if, neg=True),
-                      rpool=PFPool(PF_NAT, ext_if))],
-          PF_RULESET_RDR:
-              [PFRule(action=PF_RDR,
-                      ifname=INT_IF,
-                      af=AF_INET,
-                      dst=PFRuleAddr(PFAddr(type=PF_ADDR_DYNIFTL,
-                                            af=AF_INET,
-                                            ifname=INT_IF,
-                                            mask="255.255.255.255"),
-                                     PFPort("www", IPPROTO_TCP)),
-                      rpool=PFPool(PF_RDR, "<test2>",
-                      opts=PF_POOL_ROUNDROBIN|PF_POOL_STICKYADDR))],
-          PF_RULESET_FILTER:
-              [PFRule(action=PF_DROP,
-                      direction=PF_IN,
-                      quick=True,
-                      src=PFRuleAddr(PFAddr(type=PF_ADDR_URPFFAILED))),
-               PFRule(action=PF_PASS,
-                      direction=PF_IN,
-                      ifname=EXT_IF,
-                      proto=IPPROTO_TCP,
-                      dst=PFRuleAddr(PFAddr("<test1>"),
-                                     PFPort("www", IPPROTO_TCP)),
-                      flagset="S", flags="SA",
-                      keep_state=PF_STATE_NORMAL),
-               PFRule(action=PF_DROP,
-                      direction=PF_IN,
-                      ifname=EXT_IF,
-                      proto=IPPROTO_TCP,
-                      dst=PFRuleAddr(PFAddr("<test2>"),
-                                     PFPort("smtp", IPPROTO_TCP)),
-                      flagset="S", flags="SA",
-                      keep_state=PF_STATE_NORMAL),
-               PFRule(action=PF_PASS,
-                      ifname=EXT_IF,
-                      proto=IPPROTO_ICMP)]}
+    rules[3].append(PFTable("spammers", flags=PFR_TFLAG_PERSIST),
+                    # pass in on $ext_if inet proto tcp from ! <spammers> \
+                    #    to $ext_if port 25 rdr-to 10.0.1.23
+                    PFRule(action=PF_PASS,
+                           direction=PF_IN,
+                           ifname=EXT_IF,
+                           af=AF_INET,
+                           proto=IPPROTO_TCP,
+                           src=PFRuleAddr(PFAddr("<spammers>"), neg=True),
+                           dst=PFRuleAddr(ext_if, PFPort(25, IPPROTO_TCP)),
+                           flags="S", flagset="SA",
+                           keep_state=PF_STATE_NORMAL,
+                           rdr=PFPool(PF_POOL_RDR, PFAddr("10.0.1.23"))))
 
-    rs1 = PFRuleset()
-    for k,v in r1.iteritems():
-        rs1.append(k, *v)
-
-    rs2 = PFRuleset("test_rs")
-    for k,v in r2.iteritems():
-        rs2.append(k, *v)
-
-    rs1.insert(PF_RULESET_FILTER, 2, rs2)
-    pf.load_ruleset(rs1)
+    rs = PFRuleset()
+    rs.append(*tables)
+    rs.append(*rules)
+    pf.load_ruleset(rs)
 
 @test("PacketFilter.get_ruleset()")
 def test_get_ruleset():
     rs = pf.get_ruleset()
-    if len(rs.rules[PF_RULESET_FILTER]) != 5:
+    if not pf.get_ruleset().rules:
         raise TestError
 
 @test("PacketFilter.add_tables()")
@@ -304,6 +312,17 @@ def test_get_tstats():
 
 @test("PacketFilter.clear_tstats()")
 def test_clear_tstats():
-    if pf.clear_tstats(PFTable("test3", anchor="test_rs")) != 1:
+    if pf.clear_tstats(PFTable("test5", anchor="test_rs")) != 1:
         raise TestError
 
+@test("PacketFilter.get_states()")
+def test_get_states():
+    pf.get_states()
+
+@test("PacketFilter.clear_states()")
+def test_clear_states():
+    pf.clear_states(IFNAME)
+
+@test("PacketFilter.kill_states()")
+def test_kill_states():
+    pf.kill_states(af=AF_INET, proto=IPPROTO_TCP, ifname=IFNAME)

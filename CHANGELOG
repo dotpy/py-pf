@@ -1,3 +1,15 @@
+Nov 22, 2012 -- version 0.0.7
+    - Updated to OpenBSD 5.0; the C structures have undergone some minor
+      changes.
+    - Added support for divert-* options in PF rules.
+    - Added a new PacketFilter.get_ifaces() method to retrieve the list of
+      interfaces and interface drivers known to pf(4).
+    - Created a new PFIface class representing a network interface and returned
+      by the PacketFilter.get_ifaces() method; this class also allows the
+      retrieval of per-interface statistics.
+    - Renamed the PacketFilter.set_ifflag() method to PacketFilter.set_ifflags()
+      for consistency with PacketFilter.get_ifflags().
+
 Jul 9, 2011 -- version 0.0.6
     - Added support for packet queueing with ALTQ; three new classes have been
       created (PFAltqCBQ, PFAltqHFSC and PFAltqPriQ), corresponding to the

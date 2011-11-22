@@ -64,10 +64,12 @@ PF_STATE_SYNPROXY       = 0x3
 
 # Routing options
 PF_NOPFROUTE            = 0
-PF_FASTROUTE            = 1
-PF_ROUTETO              = 2
-PF_DUPTO                = 3
-PF_REPLYTO              = 4
+PF_ROUTETO              = 1
+PF_DUPTO                = 2
+PF_REPLYTO              = 3
+
+# Priority options
+PF_PRIO_NOTSET		    = 0xff
 
 # State keys
 PF_SK_WIRE              = 0
@@ -107,6 +109,7 @@ PFI_AFLAG_NOALIAS       = 0x08
 PF_INOUT                = 0
 PF_IN                   = 1
 PF_OUT                  = 2
+PF_FWD                  = 3
 
 # Flush options
 PF_FLUSH                = 0x01
@@ -136,6 +139,7 @@ PF_POOL_BITMASK         = 1
 PF_POOL_RANDOM          = 2
 PF_POOL_SRCHASH         = 3
 PF_POOL_ROUNDROBIN      = 4
+PF_POOL_LEASTSTATES     = 5
 
 # Mask for window scaling factor
 PF_WSCALE_MASK          = 0x0f
@@ -271,7 +275,8 @@ PFR_REFCNT_MAX          = 2
 # pfrke type
 PFRKE_PLAIN             = 0
 PFRKE_ROUTE             = 1
-PFRKE_MAX               = 2
+PFRKE_COST              = 2
+PFRKE_MAX               = 3
 
 # Interface flags
 PFI_IFLAG_SKIP          = 0x0100

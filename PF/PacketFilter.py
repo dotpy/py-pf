@@ -92,7 +92,7 @@ DIOCXROLLBACK    = _IOWR('D', 83, pfioc_trans)
 #DIOCGETSRCNODES  = _IOWR('D', 84, pfioc_src_nodes)
 #DIOCCLRSRCNODES  = _IO  ('D', 85)
 DIOCSETHOSTID    = _IOWR('D', 86, c_uint32)
-#DIOCIGETIFACES   = _IOWR('D', 87, pfioc_iface)
+DIOCIGETIFACES   = _IOWR('D', 87, pfioc_iface)
 DIOCSETIFFLAG    = _IOWR('D', 89, pfioc_iface)
 DIOCCLRIFFLAG    = _IOWR('D', 90, pfioc_iface)
 #DIOCKILLSRCNODES = _IOWR('D', 91, pfioc_src_node_kill)
@@ -333,7 +333,26 @@ class PacketFilter:
 
         return tm.seconds
 
-    def set_ifflag(self, ifname, flags):
+    def get_ifaces(self, ifname=""):
+        """Get the list of interfaces and interface drivers known to pf.
+
+        Return a tuple of PFIface objects or a single PFIface object if a
+        specific 'ifname' is specified.
+        """
+        pi = pfioc_iface(pfiio_name=ifname, pfiio_esize=sizeof(pfi_kif))
+
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCIGETIFACES, pi.asBuffer())
+            buf = (pfi_kif * pi.pfiio_size)()
+            pi.pfiio_buffer = addressof(buf)
+            ioctl(d, DIOCIGETIFACES, pi.asBuffer())
+
+        if ifname and len(buf) == 1:
+            return PFIface(buf[0])
+        else:
+            return tuple(map(PFIface, buf))
+
+    def set_ifflags(self, ifname, flags):
         """Set the user setable 'flags' on the interface 'ifname'."""
         pi = pfioc_iface(pfiio_name=ifname, pfiio_flags=flags)
         with open(self.dev, 'w') as d:
@@ -877,4 +896,4 @@ class PacketFilter:
         with open(self.dev, 'w') as d:
             ioctl(d, DIOCRCLRTSTATS, io.asBuffer())
 
-        return io.pfrio_nzero
+        return io.pfrio_nadd

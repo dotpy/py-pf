@@ -26,28 +26,29 @@ __all__ = ['pfioc_limit',
            'pfr_table',
            'pfioc_table',
            'pfr_tstats',
+           'pfi_kif',
            'pfioc_iface',
            'pf_altq',
            'pfioc_altq',
            'ifreq',
-           'ifdata']
+           'if_data']
 
 
 # Constants ####################################################################
-IFNAMSIZ             = 16
-PFRES_MAX            = 15
-LCNT_MAX             = 7
-FCNT_MAX             = 3
-SCNT_MAX             = 3
-PF_MD5_DIGEST_LENGTH = 16
-PF_TABLE_NAME_SIZE   = 32
-PF_RULE_LABEL_SIZE   = 64
-RTLABEL_LEN          = 32
-MAXPATHLEN           = 1024
-PF_SKIP_COUNT        = 8
-PF_RULE_LABEL_SIZE   = 64
-PF_QNAME_SIZE        = 64
-PF_TAG_NAME_SIZE     = 64
+IFNAMSIZ             = 16               # From /usr/include/net/if.h
+PFRES_MAX            = 15               # From /usr/include/net/pfvar.h
+LCNT_MAX             = 7                # From /usr/include/net/pfvar.h
+FCNT_MAX             = 3                # From /usr/include/net/pfvar.h
+SCNT_MAX             = 3                # From /usr/include/net/pfvar.h
+PF_MD5_DIGEST_LENGTH = 16               # From /usr/include/net/pfvar.h
+PF_TABLE_NAME_SIZE   = 32               # From /usr/include/net/pfvar.h
+PF_RULE_LABEL_SIZE   = 64               # From /usr/include/net/pfvar.h
+PF_QNAME_SIZE        = 64               # From /usr/include/net/pfvar.h
+PF_TAG_NAME_SIZE     = 64               # From /usr/include/net/pfvar.h
+PF_SKIP_COUNT        = 9                # From /usr/include/net/pfvar.h
+RTLABEL_LEN          = 32               # From /usr/include/net/route.h
+PATH_MAX             = 1024             # From /usr/include/sys/syslimits.h
+MAXPATHLEN           = PATH_MAX         # From /usr/include/sys/param.h
 
 
 # BufferStructure Class ########################################################
@@ -68,16 +69,16 @@ class BufferStructure(Structure):
 
 
 # Structures ###################################################################
-class pfioc_limit(BufferStructure):
+class pfioc_limit(BufferStructure):     # From /usr/include/net/pfvar.h
     _fields_ = [("index",             c_int),
                 ("limit",             c_uint)]
 
-class pfioc_tm(BufferStructure):
+class pfioc_tm(BufferStructure):        # From /usr/include/net/pfvar.h
     _fields_ = [("timeout",           c_int),
                 ("seconds",           c_int)]
 
 
-class pf_status(BufferStructure):
+class pf_status(BufferStructure):       # From /usr/include/net/pfvar.h
     _fields_ = [("counters",          c_uint64 * PFRES_MAX),
                 ("lcounters",         c_uint64 * LCNT_MAX),
                 ("fcounters",         c_uint64 * FCNT_MAX),
@@ -96,7 +97,7 @@ class pf_status(BufferStructure):
                 ("pf_chksum",         c_uint8 * PF_MD5_DIGEST_LENGTH)]
 
 
-class pf_addr(Structure):
+class pf_addr(Structure):               # From /usr/include/net/pfvar.h
     class _pfa(Union):
         _fields_ = [("v4",            c_uint32),
                     ("v6",            c_uint32 * 4),
@@ -107,7 +108,7 @@ class pf_addr(Structure):
     _fields_ = [("pfa",               _pfa)]
     _anonymous_ = ("pfa",)
 
-class pf_addr_wrap(Structure):
+class pf_addr_wrap(Structure):          # From /usr/include/net/pfvar.h
     class _v(Union):
         class _a(Structure):
             _fields_ = [("addr",      pf_addr),
@@ -130,20 +131,21 @@ class pf_addr_wrap(Structure):
                 ("type",              c_uint8),
                 ("iflags",            c_uint8)]
 
-class pf_rule_addr(Structure):
+class pf_rule_addr(Structure):          # From /usr/include/net/pfvar.h
     _fields_ = [("addr",              pf_addr_wrap),
                 ("port",              c_uint16 * 2),
                 ("neg",               c_uint8),
-                ("port_op",           c_uint8)]
+                ("port_op",           c_uint8),
+                ("weight",            c_uint16)]
 
 
-class pfsync_state_scrub(Structure):
+class pfsync_state_scrub(Structure):    # From /usr/include/net/pfvar.h
     _fields_ = [("pfss_flags",        c_uint16),
                 ("pfss_ttl",          c_uint8),
                 ("scrub_flag",        c_uint8),
                 ("pfss_ts_mod",       c_uint32)]
 
-class pfsync_state_peer(Structure):
+class pfsync_state_peer(Structure):     # From /usr/include/net/pfvar.h
     _fields_ = [("scrub",             pfsync_state_scrub),
                 ("seqlo",             c_uint32),
                 ("seqhi",             c_uint32),
@@ -154,13 +156,14 @@ class pfsync_state_peer(Structure):
                 ("wscale",            c_uint8),
                 ("pad",               c_uint8 * 6)]
 
-class pfsync_state_key(Structure):
+class pfsync_state_key(Structure):      # From /usr/include/net/pfvar.h
     _fields_ = [("addr",              pf_addr * 2),
                 ("port",              c_uint16 * 2),
                 ("rdomain",           c_uint16),
-                ("pad",               c_uint8 * 2)]
+                ("af",                c_uint8),
+                ("pad",               c_uint8)]
 
-class pfsync_state(Structure):
+class pfsync_state(Structure):          # From /usr/include/net/pfvar.h
     _fields_ = [("id",                c_uint32 * 2),
                 ("ifname",            c_char * IFNAMSIZ),
                 ("key",               pfsync_state_key * 2),
@@ -187,9 +190,10 @@ class pfsync_state(Structure):
                 ("updates",           c_uint8),
                 ("min_ttl",           c_uint8),
                 ("set_tos",           c_uint8),
-                ("pad",               c_uint8 * 4)]
+                ("all_state_flags",   c_uint16),
+                ("pad",               c_uint8 * 2)]
 
-class pfioc_states(BufferStructure):
+class pfioc_states(BufferStructure):    # From /usr/include/net/pfvar.h
     class _ps_u(Union):
         _fields_ = [("ps_buf",        c_void_p),
                     ("ps_states",     c_void_p)]      # (struct pfsync_state *)
@@ -198,13 +202,13 @@ class pfioc_states(BufferStructure):
                 ("ps_u",              _ps_u)]
     _anonymous_ =  ("ps_u",)
 
-class pf_state_cmp(Structure):
+class pf_state_cmp(Structure):          # From /usr/include/net/pfvar.h
     _fields_ = [("id",                c_uint64),
                 ("creatorid",         c_uint32),
                 ("direction",         c_uint8),
                 ("pad",               c_uint8 * 3)]
 
-class pfioc_state_kill(BufferStructure):
+class pfioc_state_kill(BufferStructure): # From /usr/include/net/pfvar.h
     _fields_ = [("psk_pfcmp",         pf_state_cmp),
                 ("psk_af",            c_uint8),
                 ("psk_proto",         c_int),
@@ -215,8 +219,7 @@ class pfioc_state_kill(BufferStructure):
                 ("psk_killed",        c_uint),
                 ("psk_rdomain",       c_uint16)]
 
-
-class pf_poolhashkey(Structure):
+class pf_poolhashkey(Structure):        # From /usr/include/net/pfvar.h
     class _pfk(Union):
         _fields_ = [("key8",          c_uint8 * 16),
                     ("key16",         c_uint16 * 8),
@@ -225,30 +228,33 @@ class pf_poolhashkey(Structure):
     _fields_ = [("pfk",               _pfk)]
     _anonymous_ = ("pfk",)
 
-class pf_pool(Structure):
+class pf_pool(Structure):               # From /usr/include/net/pfvar.h
     _fields_ = [("addr",              pf_addr_wrap),
                 ("key",               pf_poolhashkey),
                 ("counter",           pf_addr),
                 ("ifname",            c_char * IFNAMSIZ),
                 ("kif",               c_void_p),      # (struct pfi_kif *)
                 ("tblidx",            c_int),
+                ("states",            c_uint64),
+                ("curweight",         c_int),
+                ("weight",            c_uint16),
                 ("proxy_port",        c_uint16 * 2),
                 ("port_op",           c_uint8),
                 ("opts",              c_uint8)]
 
-class pf_rule_ptr(Union):
+class pf_rule_ptr(Union):               # From /usr/include/net/pfvar.h
     _fields_ = [("ptr",               c_void_p),      # (struct pf_rule *)
                 ("nr",                c_uint32)]
 
-class pf_rule_uid(Structure):
+class pf_rule_uid(Structure):           # From /usr/include/net/pfvar.h
     _fields_ = [("uid",               c_uint32 * 2),
                 ("op",                c_uint8)]
 
-class pf_rule_gid(Structure):
+class pf_rule_gid(Structure):           # From /usr/include/net/pfvar.h
     _fields_ = [("gid",               c_uint32 * 2),
                 ("op",                c_uint8)]
 
-class pf_rule(Structure):
+class pf_rule(Structure):               # From /usr/include/net/pfvar.h
     class _conn_rate(Structure):
         _fields_ = [("limit",         c_uint32),
                     ("seconds",       c_uint32)]
@@ -281,6 +287,7 @@ class pf_rule(Structure):
                 ("overload_tbl",      c_void_p),      # (struct pfr_table *)
                 ("os_fingerprint",    c_uint32),
                 ("rtableid",          c_int),
+                ("onrdomain",         c_int),
                 ("timeout",           c_uint32 * PFTM_MAX),
                 ("states_cur",        c_uint32),
                 ("states_tot",        c_uint32),
@@ -329,11 +336,12 @@ class pf_rule(Structure):
                 ("anchor_relative",   c_uint8),
                 ("anchor_wildcard",   c_uint8),
                 ("flush",             c_uint8),
-                ("pad2",              c_uint8 * 3),
+                ("prio",              c_uint8 * 2),
+                ("pad",               c_uint8),
                 ("divert",            _divert),
                 ("divert_packet",     _divert)]
 
-class pfioc_rule(BufferStructure):
+class pfioc_rule(BufferStructure):      # From /usr/include/net/pfvar.h
     _fields_ = [("action",            c_uint32),
                 ("ticket",            c_uint32),
                 ("nr",                c_uint32),
@@ -341,23 +349,25 @@ class pfioc_rule(BufferStructure):
                 ("anchor_call",       c_char * MAXPATHLEN),
                 ("rule",              pf_rule)]
 
-class pfioc_trans_e(Structure):
+class pfioc_trans_e(Structure):         # From /usr/include/net/pfvar.h
     _fields_ = [("type",              c_int),
                 ("anchor",            c_char * MAXPATHLEN),
                 ("ticket",            c_uint32)]
 
-class pfioc_trans(BufferStructure):
+class pfioc_trans(BufferStructure):     # From /usr/include/net/pfvar.h
     _fields_ = [("size",              c_int),
                 ("esize",             c_int),
                 ("array",             c_void_p)]      # (struct pfioc_trans_e *)
 
-class pfr_addr(Structure):
+class pfr_addr(Structure):              # From /usr/include/net/pfvar.h
     class _pfra_u(Union):
         _fields_ = [("pfra_ip4addr",  c_uint32),
                     ("pfra_ip6addr",  c_uint32 * 4)]
 
     _fields_ = [("pfra_u",            _pfra_u),
                 ("pfra_ifname",       c_char * IFNAMSIZ),
+                ("pfra_states",       c_uint32),
+                ("pfra_weight",       c_uint16),
                 ("pfra_af",           c_uint8),
                 ("pfra_net",          c_uint8),
                 ("pfra_not",          c_uint8),
@@ -366,13 +376,13 @@ class pfr_addr(Structure):
                 ("pad",               c_uint8 * 7)]
     _anonymous_ = ("pfra_u",)
 
-class pfr_table(Structure):
+class pfr_table(Structure):             # From /usr/include/net/pfvar.h
     _fields_ = [("pfrt_anchor",       c_char * MAXPATHLEN),
                 ("pfrt_name",         c_char * PF_TABLE_NAME_SIZE),
                 ("pfrt_flags",        c_uint32),
                 ("pfrt_fback",        c_uint8)]
 
-class pfioc_table(BufferStructure):
+class pfioc_table(BufferStructure):     # From /usr/include/net/pfvar.h
     _fields_ = [("pfrio_table",       pfr_table),
                 ("pfrio_buffer",      c_void_p),
                 ("pfrio_esize",       c_int),
@@ -384,7 +394,7 @@ class pfioc_table(BufferStructure):
                 ("pfrio_flags",       c_int),
                 ("pfrio_ticket",      c_uint32)]
 
-class pfr_tstats(Structure):
+class pfr_tstats(Structure):            # From /usr/include/net/pfvar.h
     _fields_ = [("pfrts_t",           pfr_table),
                 ("pfrts_packets",     c_uint64 * PFR_OP_TABLE_MAX * PFR_DIR_MAX),
                 ("pfrts_bytes",       c_uint64 * PFR_OP_TABLE_MAX * PFR_DIR_MAX),
@@ -394,7 +404,29 @@ class pfr_tstats(Structure):
                 ("pfrts_cnt",         c_int),
                 ("pfrts_refcnt",      c_int * PFR_REFCNT_MAX)]
 
-class pfioc_iface(BufferStructure):
+class pfi_kif(Structure):
+    class _RB_ENTRY(Structure):
+        _fields_ = [("rbe_left",      c_void_p),
+                    ("rbe_right",     c_void_p),
+                    ("rbe_parent",    c_void_p),
+                    ("rbe_color",     c_int)]
+
+    _fields_ = [("pfik_name",         c_char * IFNAMSIZ),
+                ("pfik_tree",         _RB_ENTRY),
+                ("pfik_packets",      c_uint64 * 2 * 2 * 2),
+                ("pfik_bytes",        c_uint64 * 2 * 2 * 2),
+                ("pfik_tzero",        c_uint32),
+                ("pfik_flags",        c_int),
+                ("pfik_flags_new",    c_int),
+                ("pfik_ah_cookie",    c_void_p),
+                ("pfik_ifp",          c_void_p),      # (struct ifnet *)
+                ("pfik_group",        c_void_p),      # (struct ifg_group *)
+                ("pfik_states",       c_int),
+                ("pfik_rules",        c_int),
+                ("pfik_routes",       c_int),
+                ("pfik_dynaddrs",     c_void_p * 2)]  # TAILQ_HEAD(,pfi_dynaddr)
+
+class pfioc_iface(BufferStructure):     # From /usr/include/net/pfvar.h
     _fields_ = [("pfiio_name",        c_char * IFNAMSIZ),
                 ("pfiio_buffer",      c_void_p),
                 ("pfiio_esize",       c_int),
@@ -402,7 +434,7 @@ class pfioc_iface(BufferStructure):
                 ("pfiio_nzero",       c_int),
                 ("pfiio_flags",       c_int)]
 
-class pf_altq(Structure):
+class pf_altq(Structure):               # From /usr/include/net/pfvar.h
     class pq_u(Union):
         class cbq_opts(Structure):
             _fields_ = [("minburst",  c_uint),
@@ -450,13 +482,13 @@ class pf_altq(Structure):
                 ("pq_u",              pq_u),
                 ("qid",               c_uint32)]
 
-class pfioc_altq(BufferStructure):
+class pfioc_altq(BufferStructure):      # From /usr/include/net/pfvar.h
     _fields_ = [("action",            c_uint32),
                 ("ticket",            c_uint32),
                 ("nr",                c_uint32),
                 ("altq",              pf_altq)]
 
-class ifreq(BufferStructure):
+class ifreq(BufferStructure):           # From /usr/include/net/if.h
     class _ifr_ifru(Union):
         class _sockaddr(Structure):
             _fields_ = [("sa_len",    c_uint8),
@@ -474,7 +506,7 @@ class ifreq(BufferStructure):
                 ("ifr_ifru",          _ifr_ifru)]
     _anonymous_ = ("ifr_ifru",)
 
-class ifdata(Structure):
+class if_data(Structure):               # From /usr/include/net/if.h
     _MCLPOOLS = 7
     class _timeval(Structure):
         _fields_ = [("tv_sec",       c_long),

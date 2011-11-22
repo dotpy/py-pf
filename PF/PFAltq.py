@@ -36,7 +36,8 @@ class PFAltq(PFObject):
         mtu, ifbw = getifmtu(self.ifname)
         if not self.ifbandwidth:
             if not ifbw:
-                raise PFError("No ifbandwidth for interface '{0.ifname}'")
+                raise PFError("No ifbandwidth for interface " +
+                              "'{0.ifname}'".format(self))
             self.ifbandwidth = ifbw
 
         if not self.qname and not self.parent:
@@ -114,10 +115,10 @@ class PFAltq(PFObject):
         s  = "altq on {0.ifname} ".format(self)
         s += "{0} {1}".format(altqs[self.scheduler], self._str_opts())
 
-        if (0 < self.bandwidth < 100):
-            s += "bandwidth {0.bandwidth}% ".format(self)
-        elif (self.bandwidth >= 100):
-            s += "bandwidth {0} ".format(rate2str(self.bandwidth))
+        if (0 < self.ifbandwidth < 100):
+            s += "bandwidth {0.ifbandwidth}% ".format(self)
+        elif (self.ifbandwidth >= 100):
+            s += "bandwidth {0} ".format(rate2str(self.ifbandwidth))
         if self.qlimit != DEFAULT_QLIMIT:
             s += "qlimit {0.qlimit:d} ".format(self)
         s += "tbrsize {0.tbrsize:d}".format(self)
