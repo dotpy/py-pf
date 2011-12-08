@@ -1,3 +1,7 @@
+bug in ctonm
+bug in PFRule (divert)
+
+
 Nov 22, 2012 -- version 0.0.7
     - Updated to OpenBSD 5.0; the C structures have undergone some minor
       changes.

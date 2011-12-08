@@ -315,9 +315,9 @@ class PFAddr(PFObject):
                 self.mask = None
             else:
                 if (m.group("ifmask")):
-                    self.mask = ctonm(int(m.group("ifmask")))
+                    self.mask = ctonm(int(m.group("ifmask")), self.af)
                 else:
-                    self.mask = ctonm(b)
+                    self.mask = ctonm(b, self.af)
             self.dyncnt = 0
             self.iflags = 0
             for mod in m.group("mod").split(":")[1:]:
@@ -335,7 +335,7 @@ class PFAddr(PFObject):
             self.type = PF_ADDR_ADDRMASK
             self.addr = m.group("ipv4")
             if m.group("mask4"):
-                self.mask = ctonm(int(m.group("mask4")))
+                self.mask = ctonm(int(m.group("mask4")), self.af)
             else:
                 self.mask = ctonm(32, self.af)
         elif m.group("ipv6"):
@@ -343,7 +343,7 @@ class PFAddr(PFObject):
             self.type = PF_ADDR_ADDRMASK
             self.addr = m.group("ipv6")
             if m.group("mask6"):
-                self.mask = ctonm(int(m.group("mask6")))
+                self.mask = ctonm(int(m.group("mask6")), self.af)
             else:
                 self.mask = ctonm(128, self.af)
 
@@ -777,7 +777,7 @@ class PFRule(PFObject):
         r.flush             = self.flush
         r.prio[:]           = self.prio
         if self.divert[0]:
-            r.divert.addr   = inet_pton(self.af, self.divert[0].addr)
+            r.divert.addr   = self.divert[0]._to_struct().v.a.addr
         if self.divert[1]:
             r.divert.port   = htons(self.divert[1].num[0])
         if self.divert_packet:
