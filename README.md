@@ -20,7 +20,9 @@ run the install script:
 
 Tests
 -----
-To run the test suite, just run `python setup.py test`.
+To run the test suite, just run:
+
+    # python setup.py test
 
 
 Documentation
