@@ -1,3 +1,20 @@
+Jun 28, 2012 -- version 0.0.8
+-----------------------------
+- Updated to OpenBSD 5.1
+- Module renamed to pf for better compliance with PEP8
+- Fixed a ZeroDivisionError in PFStatus._to_string() when runtime == 0
+- Added support for ALTQ statistics; three new classes have been created
+  (CBQStats, HFSCStats and PriQStats), corresponding to the schedulers
+  supported by OpenBSD.
+- Fixed a few calls to ctonm() in PFRule.py that didn't pass the af argument
+- Added probability and options to the string representation of PFRule
+  objects
+- Fixed a regexp error in PFRule.py that prevented the correct parsing of
+  some port operands
+- Fixed bug in PFUtils.rate2str which prevented correct handling of floating
+  point numbers
+- Test suite completely re-written and run with "python setup.py test"
+
 Nov 22, 2012 -- version 0.0.7
 -----------------------------
 - Updated to OpenBSD 5.0; the C structures have undergone some minor changes.
