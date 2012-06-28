@@ -1,13 +1,14 @@
 """Classes representing the entries in the firewall's state table."""
 
-
 from socket import *
 from ctypes import *
 from struct import *
 
-from PF import *
-from PF._PFStruct import *
-from PF.PFUtils import *
+from pf.constants import *
+from pf._struct import *
+from pf._base import PFObject
+from pf._utils import getprotobynumber, tcpstates, udpstates
+from pf.rule import PFAddr, PFPort
 
 
 __all__ = ['PFStatePeer',
@@ -15,25 +16,6 @@ __all__ = ['PFStatePeer',
            'PFState']
 
 
-# Dictionaries for mapping constants to strings ################################
-tcpstates = {TCPS_CLOSED:       "CLOSED",
-             TCPS_LISTEN:       "LISTEN",
-             TCPS_SYN_SENT:     "SYN_SENT",
-             TCPS_SYN_RECEIVED: "SYN_RCVD",
-             TCPS_ESTABLISHED:  "ESTABLISHED",
-             TCPS_CLOSE_WAIT:   "CLOSE_WAIT",
-             TCPS_FIN_WAIT_1:   "FIN_WAIT_1",
-             TCPS_CLOSING:      "CLOSING",
-             TCPS_LAST_ACK:     "LAST_ACK",
-             TCPS_FIN_WAIT_2:   "FIN_WAIT_2",
-             TCPS_TIME_WAIT:    "TIME_WAIT"}
-
-states    = {PFUDPS_NO_TRAFFIC: "NO_TRAFFIC",
-             PFUDPS_SINGLE:     "SINGLE",
-             PFUDPS_MULTIPLE:   "MULTIPLE"}
-
-
-# PFStatePeer class ############################################################
 class PFStatePeer(PFObject):
     """Represents a connection endpoint."""
 
@@ -64,8 +46,9 @@ class PFStateKey(PFObject):
 
     _struct_type = pfsync_state_key
 
-    def __init__(self, key):
+    def __init__(self, key, af):
         """Check argument and initialize class attributes."""
+        self.af = af
         super(PFStateKey, self).__init__(key)
 
     def _from_struct(self, k):
@@ -74,14 +57,13 @@ class PFStateKey(PFObject):
         
 
         a[0].v.a.addr, a[1].v.a.addr = k.addr
-        mask = '\xff' * {AF_INET: 4, AF_INET6: 16}[k.af]
+        mask = '\xff' * {AF_INET: 4, AF_INET6: 16}[self.af]
         memmove(a[0].v.a.mask.v6, c_char_p(mask), len(mask))
         memmove(a[1].v.a.mask.v6, c_char_p(mask), len(mask))
 
-        self.addr    = (PFAddr(a[0], k.af), PFAddr(a[1], k.af))
+        self.addr    = (PFAddr(a[0], self.af), PFAddr(a[1], self.af))
         self.port    = (PFPort(ntohs(k.port[0])), PFPort(ntohs(k.port[1])))
         self.rdomain = ntohs(k.rdomain)
-        self.af      = k.af
 
 
 class PFState(PFObject):
@@ -95,8 +77,7 @@ class PFState(PFObject):
 
     def _from_struct(self, s):
         """Initialize class attributes from a pfsync_state structure."""
-        id = unpack('>II', string_at(addressof(s.id), sizeof(s.id)))
-        self.id              = id[0] << 32 | id[1]
+        self.id              = unpack("Q", pack(">Q", s.id))[0]
         self.ifname          = s.ifname
 
         a                    = pf_addr_wrap()
@@ -132,15 +113,15 @@ class PFState(PFObject):
         if self.direction == PF_OUT:
             self.src         = PFStatePeer(s.src)
             self.dst         = PFStatePeer(s.dst)
-            self.sk          = PFStateKey(s.key[PF_SK_STACK])
-            self.nk          = PFStateKey(s.key[PF_SK_WIRE])
+            self.sk          = PFStateKey(s.key[PF_SK_STACK], s.af)
+            self.nk          = PFStateKey(s.key[PF_SK_WIRE], s.af)
             if self.proto in (IPPROTO_ICMP, IPPROTO_ICMPV6):
                 self.sk.port = (self.nk.port[0], self.sk.port[1])
         else:
             self.src         = PFStatePeer(s.dst)
             self.dst         = PFStatePeer(s.src)
-            self.sk          = PFStateKey(s.key[PF_SK_WIRE])
-            self.nk          = PFStateKey(s.key[PF_SK_STACK])
+            self.sk          = PFStateKey(s.key[PF_SK_WIRE], s.af)
+            self.nk          = PFStateKey(s.key[PF_SK_STACK], s.af)
             if self.proto in (IPPROTO_ICMP, IPPROTO_ICMPV6):
                 self.sk.port = (self.sk.port[0], self.nk.port[1])
 
@@ -150,37 +131,31 @@ class PFState(PFObject):
         sp       = (sk.port[0].num[0], sk.port[1].num[0])
         np       = (nk.port[0].num[0], nk.port[1].num[0])
         src, dst = self.src, self.dst
+        afto     = (nk.af != sk.af)
 
-        s  = "{0.ifname} ".format(self)
-        s += "{0} ".format(getprotobynumber(self.proto) or self.proto)
+        s  = "{.ifname} ".format(self)
+        s += "{} ".format(getprotobynumber(self.proto) or self.proto)
 
-        s += "{0}".format(nk.addr[1])
-        if np[1]:
-            s += (":{0}" if (self.af == AF_INET) else "[{0}]").format(np[1])
+        s += "{}".format(nk.addr[1])
+        if afto or (nk.addr[1] != sk.addr[1]) or (np[1] != sp[1]) or \
+           (nk.rdomain != sk.rdomain):
+            s += " ({})".format(sk.addr[int(not afto)])
 
-        if (nk.addr[1] != sk.addr[1]) or (np[1] != sp[1]):
-            s += " ({0}".format(sk.addr[1])
-            if sp[1]:
-                s += (":{0}" if (self.af == AF_INET) else "[{0}]").format(sp[1])
-            s += ")"
+        if self.direction == PF_OUT or (afto and self.direction == PF_IN):
+            s += " -> "
+        else:
+            s += " <- "
 
-        s += (" -> " if self.direction == PF_OUT else " <- ")
-
-        s += "{0}".format(nk.addr[0])
-        if np[0]:
-            s += (":{0}" if (self.af == AF_INET) else "[{0}]").format(np[0])
-
-        if (nk.addr[0] != sk.addr[0]) or (np[0] != sp[0]):
-            s += " ({0}".format(sk.addr[0])
-            if sp[0]:
-                s += (":{0}" if (self.af == AF_INET) else "[{0}]").format(sp[0])
-            s += ")"
+        s += "{}".format(nk.addr[0])
+        if afto or (nk.addr[1] != nk.addr[1]) or (np[1] != sp[1]) or \
+           (nk.rdomain != sk.rdomain):
+            s += " ({})".format(sk.addr[int(afto)])
 
         s += "       "
         if self.proto == IPPROTO_TCP:
             if (src.state <= TCPS_TIME_WAIT and
                 dst.state <= TCPS_TIME_WAIT):
-                s += "{0}:{1}".format(tcpstates[src.state],
+                s += "{}:{}".format(tcpstates[src.state],
                                       tcpstates[dst.state])
             elif (src.state == PF_TCPS_PROXY_SRC or
                   dst.state == PF_TCPS_PROXY_SRC):
@@ -189,31 +164,31 @@ class PFState(PFObject):
                   dst.state == PF_TCPS_PROXY_DST):
                 s += "PROXY:DST"
             else:
-                s += "<BAD STATE LEVELS {0.state}:{1.state}>".format(src, dst)
+                s += "<BAD STATE LEVELS {.state}:{.state}>".format(src, dst)
 
             s += "\n"
             for p in src, dst:
-                s += "   [{0.seqlo} + {1}]".format(p, (p.seqhi - p.seqlo))
+                s += "   [{.seqlo} + {}]".format(p, (p.seqhi - p.seqlo))
                 if p.seqdiff:
-                    s += "(+{0.seqdiff})".format(p)
+                    s += "(+{.seqdiff})".format(p)
                 if src.wscale and dst.wscale:
-                    s += " wscale {0}".format(p.wscale & PF_WSCALE_MASK)
+                    s += " wscale {}".format(p.wscale & PF_WSCALE_MASK)
 
         elif (self.proto == IPPROTO_UDP  and
               src.state < PFUDPS_NSTATES and dst.state < PFUDPS_NSTATES) or \
              (self.proto not in (IPPROTO_ICMP, IPPROTO_ICMPV6) and
               src.state < PFOTHERS_NSTATES and dst.state < PFOTHERS_NSTATES):
-            s += "{0}:{1}".format(states[src.state], states[dst.state])
+            s += "{}:{}".format(states[src.state], states[dst.state])
         else:
-            s += "{0.state}:{1.state}".format(src, dst)
+            s += "{.state}:{.state}".format(src, dst)
 
         hrs, sec = divmod(self.creation, 60)
         hrs, min = divmod(hrs, 60)
-        s += "\n   age {0:02d}:{1:02d}:{2:02d}".format(hrs, min, sec)
+        s += "\n   age {:02d}:{:02d}:{:02d}".format(hrs, min, sec)
 
         hrs, sec = divmod(self.expire, 60)
         hrs, min = divmod(hrs, 60)
-        s += ", expires in {0:02d}:{1:02d}:{2:02d}".format(hrs, min, sec)
+        s += ", expires in {:02d}:{:02d}:{:02d}".format(hrs, min, sec)
 
         s += ", {0.packets[0]}:{0.packets[1]} pkts".format(self)
         s += ", {0.bytes[0]}:{0.bytes[1]} bytes".format(self)

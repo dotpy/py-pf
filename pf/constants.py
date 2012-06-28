@@ -1,6 +1,5 @@
 """Export constants shared by all classes of the module."""
 
-
 from sys import maxint
 
 
@@ -40,6 +39,8 @@ PFRULE_RULESRCTRACK     = 0x0040
 PFRULE_IFBOUND          = 0x00010000
 PFRULE_STATESLOPPY      = 0x00020000
 PFRULE_PFLOW            = 0x00040000
+PFRULE_ONCE             = 0x00100000
+PFRULE_AFTO             = 0x00200000
 
 # Port comparison operators
 PF_OP_NONE              = 0

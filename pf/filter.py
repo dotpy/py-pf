@@ -5,8 +5,6 @@ by the pf(4) pseudo-device; this allows Python to natively send commands to the
 kernel, thanks to the fcntl and ctypes modules.
 """
 
-
-from __future__ import with_statement
 import os
 import stat
 from fcntl import ioctl
@@ -14,8 +12,15 @@ from errno import *
 from ctypes import *
 from socket import *
 
-from PF import *
-from PF._PFStruct import *
+from pf.constants import *
+from pf._struct import *
+from pf._base import PFObject
+from pf.altq import *
+from pf.state import PFState
+from pf.status import PFStatus, PFIface
+from pf.table import PFTableAddr, PFTable, PFTStats
+from pf.rule import PFRule, PFRuleset, pf_timeouts
+from pf._utils import dbg_levels, pf_limits, pf_timeouts
 
 
 __all__ = ['PacketFilter']
@@ -64,7 +69,7 @@ DIOCADDALTQ      = _IOWR('D', 45, pfioc_altq)
 DIOCGETALTQS     = _IOWR('D', 47, pfioc_altq)
 DIOCGETALTQ      = _IOWR('D', 48, pfioc_altq)
 #DIOCCHANGEALTQ   = _IOWR('D', 49, pfioc_altq)
-#DIOCGETQSTATS    = _IOWR('D', 50, pfioc_qstats)
+DIOCGETQSTATS    = _IOWR('D', 50, pfioc_qstats)
 #DIOCGETRULESETS  = _IOWR('D', 58, pfioc_ruleset)
 #DIOCGETRULESET   = _IOWR('D', 59, pfioc_ruleset)
 DIOCRCLRTABLES   = _IOWR('D', 60, pfioc_table)
@@ -99,44 +104,6 @@ DIOCCLRIFFLAG    = _IOWR('D', 90, pfioc_iface)
 DIOCSETREASS     = _IOWR('D', 92, c_uint32)
 
 
-# Dictionaries for mapping strings to constants ################################
-dbg_levels  = {"emerg":           LOG_EMERG,
-               "alert":           LOG_ALERT,
-               "crit":            LOG_CRIT,
-               "err":             LOG_ERR,
-               "warn":            LOG_WARNING,
-               "notice":          LOG_NOTICE,
-               "info":            LOG_INFO,
-               "debug":           LOG_DEBUG}
-
-pf_limits   = {"states":          PF_LIMIT_STATES,
-               "src-nodes":       PF_LIMIT_SRC_NODES,
-               "frags":           PF_LIMIT_FRAGS,
-               "tables":          PF_LIMIT_TABLES,
-               "table-entries":   PF_LIMIT_TABLE_ENTRIES}
-
-pf_timeouts = {"tcp.first":       PFTM_TCP_FIRST_PACKET,
-               "tcp.opening":     PFTM_TCP_OPENING,
-               "tcp.established": PFTM_TCP_ESTABLISHED,
-               "tcp.closing":     PFTM_TCP_CLOSING,
-               "tcp.finwait":     PFTM_TCP_FIN_WAIT,
-               "tcp.closed":      PFTM_TCP_CLOSED,
-               "tcp.tsdiff":      PFTM_TS_DIFF,
-               "udp.first":       PFTM_UDP_FIRST_PACKET,
-               "udp.single":      PFTM_UDP_SINGLE,
-               "udp.multiple":    PFTM_UDP_MULTIPLE,
-               "icmp.first":      PFTM_ICMP_FIRST_PACKET,
-               "icmp.error":      PFTM_ICMP_ERROR_REPLY,
-               "other.first":     PFTM_OTHER_FIRST_PACKET,
-               "other.single":    PFTM_OTHER_SINGLE,
-               "other.multiple":  PFTM_OTHER_MULTIPLE,
-               "frag":            PFTM_FRAG,
-               "interval":        PFTM_INTERVAL,
-               "adaptive.start":  PFTM_ADAPTIVE_START,
-               "adaptive.end":    PFTM_ADAPTIVE_END,
-               "src.track":       PFTM_SRC_NODE}
-
-
 # _PFTrans object ##############################################################
 class _PFTrans(object):
     """Class for managing transactions with the Packet Filter subsystem."""
@@ -168,7 +135,7 @@ class _PFTrans(object):
 
 
 # PacketFilter class ###########################################################
-class PacketFilter:
+class PacketFilter(object):
     """Class representing the kernel's packet filtering subsystem.
 
     It provides a set of methods that allow you to send commands to the kernel
@@ -423,7 +390,7 @@ class PacketFilter:
                     ps.ps_len = l
                 ioctl(d, DIOCGETSTATES, ps.asBuffer())
                 if ps.ps_len == 0:
-                    return
+                    return ()
                 if ps.ps_len <= l:
                     break
                 l = (ps.ps_len * 2)
@@ -538,6 +505,41 @@ class PacketFilter:
                     else:
                         qids[altq.qname] = pa.altq.qid
 
+    def get_qstats(self):
+        """ """
+        pa = pfioc_altq()
+        pq = pfioc_qstats()
+        qs = queue_stats()
+        qstats = []
+
+        with open(self.dev, 'w') as d:
+            try:
+                ioctl(d, DIOCGETALTQS, pa.asBuffer())
+            except IOError, (e, s):
+                if e == ENODEV:
+                    raise PFError("No ALTQ support in kernel")
+                raise
+
+            for nr in range(pa.nr):
+                pa.nr = nr
+                ioctl(d, DIOCGETALTQ, pa.asBuffer())
+                if pa.altq.qid <= 0:
+                    continue
+                pq.nr = nr
+                pq.ticket = pa.ticket
+                pq.buf = addressof(qs)
+                pq.nbytes = sizeof(qs)
+                ioctl(d, DIOCGETQSTATS, pq.asBuffer())
+                if pa.altq.scheduler == ALTQT_CBQ:
+                    s = CBQStats(PFAltqCBQ(pa.altq), qs.data.cbq_stats)
+                elif pa.altq.scheduler == ALTQT_HFSC:
+                    s = HFSCStats(PFAltqHFSC(pa.altq), qs.data.hfsc_stats)
+                elif pa.altq.scheduler == ALTQT_PRIQ:
+                    s = PriQStats(PFAltqPriQ(pa.altq), qs.data.priq_stats)
+                qstats.append(s)
+
+        return tuple(qstats)
+
     def _get_rules(self, path, dev, clear):
         """ """
         if path.endswith("/*"):
@@ -615,12 +617,13 @@ class PacketFilter:
                                             rule=r._to_struct())
 
                             if isinstance(r, PFRuleset):
-                                pr.anchor_call = os.path.join(path, r.name)
+                                pr.anchor_call = r.name
 
                             ioctl(d, DIOCADDRULE, pr.asBuffer())
 
                             if isinstance(r, PFRuleset):
-                                self.load_ruleset(r, pr.anchor_call, *tr_type)
+                                self.load_ruleset(r, os.path.join(path, r.name),
+                                                  *tr_type)
 
     def add_tables(self, *tables):
         """Create one or more tables.

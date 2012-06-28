@@ -1,14 +1,17 @@
 """Classes to represent Packet Filter Rules."""
 
-
 from socket import *
 from ctypes import *
 import re
-import pwd, grp
+import pwd
+import grp
 
-from PF import *
-from PF._PFStruct import *
-from PF.PFUtils import *
+from pf.constants import *
+from pf._struct import *
+from pf._base import PFObject
+from pf._utils import *
+from pf.table import PFTable
+
 
 __all__ = ['PFUid',
            'PFGid',
@@ -18,24 +21,6 @@ __all__ = ['PFUid',
            'PFPool',
            'PFRule',
            'PFRuleset']
-
-
-# Dictionaries for mapping strings to constants ################################
-pf_ops      = {"":          PF_OP_NONE,
-               "><":        PF_OP_IRG,
-               "<>":        PF_OP_XRG,
-               "=":         PF_OP_EQ,
-               "!=":        PF_OP_NE,
-               "<":         PF_OP_LT,
-               "<=":        PF_OP_LE,
-               ">":         PF_OP_GT,
-               ">=":        PF_OP_GE,
-               ":":         PF_OP_RRG}
-
-pf_if_mods  = {"network":   PFI_AFLAG_NETWORK,
-               "broadcast": PFI_AFLAG_BROADCAST,
-               "peer":      PFI_AFLAG_PEER,
-               "0":         PFI_AFLAG_NOALIAS}
 
 
 # Helper functions #############################################################
@@ -68,12 +53,12 @@ class PFOp(PFObject):
     def _from_string(self, operation):
         """Initalize a new instance from a string."""
         op_re = "(?:(?P<n1>[0-9]+)?\s*"                  + \
-                   "(?P<op>=|!=|<|<=|>|>=|:|<>|><))?\s*" + \
+                   "(?P<op>=|!=|<>|><|<|<=|>|>=|:))?\s*" + \
                 "(?P<n2>[0-9a-z-]+)?"
 
         m = re.compile(op_re).match(operation)
         if not m:
-            raise ValueError("Could not parse string: {0}".format(operation))
+            raise ValueError("Could not parse string: {}".format(operation))
 
         self.op = pf_ops[m.group("op")] if m.group("op") else PF_OP_EQ
 
@@ -289,7 +274,7 @@ class PFAddr(PFObject):
 
         m = re.compile(addr_re).match(a)
         if not m:
-            raise ValueError("Could not parse address: {0}".format(a))
+            raise ValueError("Could not parse address: {}".format(a))
 
         if m.group("nort"):
             self.type = PF_ADDR_NOROUTE
@@ -383,7 +368,7 @@ class PFAddr(PFObject):
     def _to_string(self):
         """Return the string representation of the address."""
         if self.type == PF_ADDR_DYNIFTL:
-            s = "({0.ifname}".format(self)
+            s = "({.ifname}".format(self)
             if self.iflags & PFI_AFLAG_NETWORK:
                 s += ":network"
             if self.iflags & PFI_AFLAG_BROADCAST:
@@ -394,7 +379,7 @@ class PFAddr(PFObject):
                 s += ":0"
             s += ")"
         elif self.type == PF_ADDR_TABLE:
-            return "<{0.tblname}>".format(self)
+            return "<{.tblname}>".format(self)
         elif self.type == PF_ADDR_ADDRMASK:
             s = self.addr or "any"
         elif self.type == PF_ADDR_NOROUTE:
@@ -402,7 +387,7 @@ class PFAddr(PFObject):
         elif self.type == PF_ADDR_URPFFAILED:
             return "urpf-failed"
         elif self.type == PF_ADDR_RTLABEL:
-            return "route \"{0.rtlabelname}\"".format(self)
+            return "route \"{.rtlabelname}\"".format(self)
         elif self.type == PF_ADDR_RANGE:
             s = "{0.addr[0]} - {0.addr[1]}".format(self)
         else:
@@ -411,7 +396,7 @@ class PFAddr(PFObject):
         if self.type != PF_ADDR_RANGE and self.mask:
             bits = nmtoc(self.mask, self.af)
             if not ((self.af == AF_INET and bits == 32) or (bits == 128)):
-                s += "/{0:d}".format(bits)
+                s += "/{}".format(bits)
 
         return s
 
@@ -477,8 +462,8 @@ class PFRuleAddr(PFObject):
 
     def _to_string(self):
         """Return the string representation of the address/port pair."""
-        s = ("! {0.addr}" if self.neg else "{0.addr}").format(self)
-        p = "{0.port}".format(self)
+        s = ("! {.addr}" if self.neg else "{.addr}").format(self)
+        p = "{.port}".format(self)
         if p:
             s += (":" if self.port.op == PF_OP_NONE else " port ") + p
 
@@ -517,7 +502,7 @@ class PFPool(PFObject):
     def _from_struct(self, p):
         """Initalize a new instance from a pf_pool structure."""
         self.addr       = PFAddr(p.addr, self._af)
-        self.key        = "{0:#010x}{1:08x}{2:08x}{3:08x}".format(*p.key.key32)
+        self.key        = "{:#010x}{:08x}{:08x}{:08x}".format(*p.key.key32)
         self.counter    = p.counter
         self.ifname     = p.ifname
         self.tblidx     = p.tblidx
@@ -552,23 +537,23 @@ class PFPool(PFObject):
 
         if self.ifname:
             if self.addr.addr is not None:
-                s += "{0.addr}@".format(self)
+                s += "{.addr}@".format(self)
             s += self.ifname
         else:
-            s += "{0.addr}".format(self)
+            s += "{.addr}".format(self)
 
         if self.id == PF_POOL_NAT:
             if (p1, p2) != (PF_NAT_PROXY_PORT_LOW, PF_NAT_PROXY_PORT_HIGH) and \
                (p1, p2) != (0, 0):
                 if p1 == p2:
-                    s += " port {0}".format(p1)
+                    s += " port {}".format(p1)
                 else:
-                    s += " port {0}:{1}".format(p1, p2)
+                    s += " port {}:{}".format(p1, p2)
         elif self.id == PF_POOL_RDR:
             if p1:
-                s += " port {0}".format(p1)
+                s += " port {}".format(p1)
                 if p2 and (p2 != p1):
-                    s += ":{0}".format(p2)
+                    s += ":{}".format(p2)
 
         opt = self.opts & PF_POOL_TYPEMASK
         if opt == PF_POOL_BITMASK:
@@ -687,6 +672,7 @@ class PFRule(PFObject):
         self.anchor_wildcard   = r.anchor_wildcard
         self.flush             = r.flush
         self.prio              = tuple(r.prio)
+        self.naf               = r.naf
         self.divert            = (None, None)
         self.divert_packet     = (None, None)
         if r.divert.port:
@@ -764,8 +750,8 @@ class PFRule(PFObject):
         r.proto             = self.proto
         r.type              = self.type
         r.code              = self.code
-        r.flags             = sum([1 << "FSRPAUEW".find(f) for f in self.flags])
-        r.flagset           = sum([1 << "FSRPAUEW".find(f) for f in self.flagset])
+        r.flags             = sum([1<<"FSRPAUEW".find(f) for f in self.flags])
+        r.flagset           = sum([1<<"FSRPAUEW".find(f) for f in self.flagset])
         r.min_ttl           = self.min_ttl
         r.allow_opts        = int(self.allow_opts)
         r.rt                = self.rt
@@ -776,6 +762,7 @@ class PFRule(PFObject):
         r.anchor_wildcard   = self.anchor_wildcard
         r.flush             = self.flush
         r.prio[:]           = self.prio
+        r.naf               = self.naf
         if self.divert[0]:
             r.divert.addr   = self.divert[0]._to_struct().v.a.addr
         if self.divert[1]:
@@ -794,12 +781,12 @@ class PFRule(PFObject):
                       "rdr-anchor", "rdr-anchor")
 
         if self.action > PF_MATCH:
-            s = "action({0.action})".format(self)
+            s = "action({.action})".format(self)
         elif isinstance(self, PFRuleset):
             if self.name:
                 s = pf_anchors[self.action]
                 if not self.name.startswith("_"):
-                    s += " \"{0.name}\"".format(self)
+                    s += " \"{.name}\"".format(self)
         else:
             s = pf_actions[self.action]
 
@@ -809,7 +796,7 @@ class PFRule(PFObject):
             elif self.rule_flag & PFRULE_RETURNRST:
                 s += " return-rst"
                 if self.return_ttl:
-                    s += "(ttl {0.return_ttl})".format(self)
+                    s += "(ttl {.return_ttl})".format(self)
             elif self.rule_flag & PFRULE_RETURNICMP:
                 ic  = geticmpcodebynumber(self.return_icmp >> 8,
                                           self.return_icmp & 0xff, AF_INET)
@@ -817,12 +804,12 @@ class PFRule(PFObject):
                                           self.return_icmp6 & 0xff, AF_INET6)
                 s += " return-icmp"
                 if self.af == AF_INET:
-                    s += "({0})".format(ic or self.return_icmp & 0xff)
+                    s += "({})".format(ic or self.return_icmp & 0xff)
                 elif self.af == AF_INET6:
-                    s += "6({0})".format(ic6 or self.return_icmp6 & 0xff)
+                    s += "6({})".format(ic6 or self.return_icmp6 & 0xff)
                 else:
-                    s += "({0}, {1})".format((ic or self.return_icmp & 0xff),
-                                             (ic6 or self.return_icmp6 & 0xff))
+                    s += "({}, {})".format((ic or self.return_icmp & 0xff),
+                                           (ic6 or self.return_icmp6 & 0xff))
             else:
                 s += " drop"
 
@@ -842,32 +829,29 @@ class PFRule(PFObject):
                 if self.log & PF_LOG_SOCKET_LOOKUP:
                     l.append("user")
                 if self.logif:
-                    l.append("to pflog{0.logif}".format(self))
-                s += " ({0})".format(", ".join(l))
+                    l.append("to pflog{.logif}".format(self))
+                s += " ({})".format(", ".join(l))
 
         if self.quick:
             s += " quick"
 
         if self.ifname:
             if self.ifnot:
-                s += " on ! {0.ifname}".format(self)
+                s += " on ! {.ifname}".format(self)
             else:
-                s += " on {0.ifname}".format(self)
+                s += " on {.ifname}".format(self)
 
         if self.onrdomain >= 0:
             if self.ifnot:
-                s += " on ! rdomain {0.onrdomain}".format(self)
+                s += " on ! rdomain {.onrdomain}".format(self)
             else:
-                s += " on rdomain {0.onrdomain}".format(self)
+                s += " on rdomain {.onrdomain}".format(self)
 
         if self.af:
-            if self.af == AF_INET:
-                s += " inet"
-            else:
-                s += " inet6"
+            s += " inet" if (self.af == AF_INET) else " inet6"
 
         if self.proto:
-            s += " proto {0}".format(getprotobynumber(self.proto) or self.proto)
+            s += " proto {}".format(getprotobynumber(self.proto) or self.proto)
 
         if self.src.addr._is_any() and self.dst.addr._is_any() and \
            not self.src.neg and not self.dst.neg               and \
@@ -875,16 +859,16 @@ class PFRule(PFObject):
            self.os_fingerprint == PF_OSFP_ANY:
             s += " all"
         else:
-            s += " from {0.src}".format(self)
+            s += " from {.src}".format(self)
             #if self.os_fingerprint != PF_OSFP_ANY:
-            s += " to {0.dst}".format(self)
+            s += " to {.dst}".format(self)
 
         if self.rcv_ifname:
-            s += " received on {0.rcv_ifname}".format(self)
+            s += " received on {.rcv_ifname}".format(self)
         if self.uid.op:
-            s += " user {0.uid}".format(self)
+            s += " user {.uid}".format(self)
         if self.gid.op:
-            s += " group {0.gid}".format(self)
+            s += " group {.gid}".format(self)
 
         if self.flags or self.flagset:
             s += " flags {0.flags}/{0.flagset}".format(self)
@@ -901,13 +885,13 @@ class PFRule(PFObject):
                 s += " icmp-type"
             else:
                 s += " icmp6-type"
-            s += " {0}".format(it or self.type-1)
+            s += " {}".format(it or self.type-1)
             if self.code:
                 ic = geticmpcodebynumber(self.type-1, self.code-1, self.af)
-                s += " code {0}".format(ic or self.code-1)
+                s += " code {}".format(ic or self.code-1)
 
         if self.tos:
-            s += " tos {0.tos:#04x}".format(self)
+            s += " tos {.tos:#04x}".format(self)
 
         has_opts = False
         if (self.max_states or self.max_src_nodes or self.max_src_states)  or \
@@ -926,8 +910,47 @@ class PFRule(PFObject):
         elif self.keep_state == PF_STATE_SYNPROXY:
             s += " synproxy state"
 
-        # prob
-        # opts
+        if self.prob:
+            s += " probability {:.0f}%".format(self.prob*100.0/(UINT_MAX+1))
+
+        if has_opts:
+            opts = []
+            if self.max_states:
+                opts.append("max {.max_states}".format(self))
+            if self.rule_flag & PFRULE_NOSYNC:
+                opts.append("no-sync")
+            if self.rule_flag & PFRULE_SRCTRACK:
+                if self.rule_flag & PFRULE_RULESRCTRACK:
+                    opts.append("source-track rule")
+                else:
+                    opts.append("source-track global")
+            if self.max_src_states:
+                opts.append("max-src-states {.max_src_states}".format(self))
+            if self.max_src_conn:
+                opts.append("max-src-conn {.max_src_conn}".format(self))
+            if self.max_src_conn_rate[0]:
+                opts.append("max-src-conn-rate " +
+                            "{}/{}".format(*self.max_src_conn_rate))
+            if self.max_src_nodes:
+                opts.append("max-src-nodes {.max_src_nodes}".format(self))
+            if self.overload_tblname:
+                opt = "overload <{.overload_tblname}>".format(self)
+                if self.flush:
+                    opt += " flush"
+                if self.flush & PF_FLUSH_GLOBAL:
+                    opt += " global"
+                opts.append(opt)
+            if self.rule_flag & PFRULE_IFBOUND:
+                opts.append("if-bound")
+            if self.rule_flag & PFRULE_STATESLOPPY:
+                opts.append("sloppy")
+            if self.rule_flag & PFRULE_PFLOW:
+                opts.append("pflow")
+            for i, t in enumerate(self.timeout):
+                if t:
+                    opts.append("{} {}".format(pf_timeouts[i], t))
+
+            s += " ({})".format(", ".join(opts))
 
         if self.rule_flag & PFRULE_FRAGMENT:
             s += " fragment"
@@ -939,62 +962,70 @@ class PFRule(PFObject):
             if self.scrub_flags & PFSTATE_RANDOMID:
                 opts.append("random-id")
             if self.min_ttl:
-                opts.append("min-ttl {0.min_ttl}".format(self.min_ttl))
+                opts.append("min-ttl {.min_ttl}".format(self.min_ttl))
             if self.scrub_flags & PFSTATE_SETTOS:
-                opts.append("set-tos {0.set_tos:#04x}".format(self))
+                opts.append("set-tos {.set_tos:#04x}".format(self))
             if self.scrub_flags & PFSTATE_SCRUB_TCP:
                 opts.append("reassemble tcp")
             if self.max_mss:
-                opts.append("max_mss {0.max_mss}".format(self))
-            s += " scrub ({0})".format(" ".join(opts))
+                opts.append("max_mss {.max_mss}".format(self))
+            s += " scrub ({})".format(" ".join(opts))
 
         if self.allow_opts:
             s += " allow-opts"
         if self.label:
-            s += " label \"{0.label}\"".format(self)
+            s += " label \"{.label}\"".format(self)
+        if self.rule_flag & PFRULE_ONCE:
+            s += " once"
 
         if self.qname and self.pqname:
             s += " queue({0.qname}, {0.pqname})".format(self)
         elif self.qname:
-            s += " queue {0.qname}".format(self)
+            s += " queue {.qname}".format(self)
 
         if self.tagname:
-            s += " tag {0.tagname}".format(self)
+            s += " tag {.tagname}".format(self)
         if self.match_tagname:
             if self.match_tag_not:
                 s += " !"
-            s += " tagged {0.match_tagname}".format(self)
+            s += " tagged {.match_tagname}".format(self)
 
         if self.rtableid != -1:
-            s += " rtable {0.rtableid}".format(self)
+            s += " rtable {.rtableid}".format(self)
 
         if self.divert[1]:
             if not self.divert[0]:
                 s += " divert-reply"
             else:
-                s += " divert-to {0} port {1}".format(*self.divert)
+                s += " divert-to {} port {}".format(*self.divert)
 
         if self.divert_packet:
-            s += " divert-packet port {0}".format(self.divert_packet)
+            s += " divert-packet port {.divert_packet}".format(self)
 
         if not isinstance(self, PFRuleset):
             if self.nat.addr.type != PF_ADDR_NONE:
-                s += " nat-to {0.nat}".format(self)
-            if self.rdr.addr.type != PF_ADDR_NONE:
-                s += " rdr-to {0.rdr}".format(self)
+                if self.rule_flag & PFRULE_AFTO:
+                    af = " inet" if (self.naf == AF_INET) else " inet6"
+                    s += " af-to {} from {.nat}".format(af, self)
+                    if self.rdr.addr.type != PF_ADDR_NONE:
+                        s += " to {.rdr}".format(self)
+                else:
+                    s += " nat-to {.nat}".format(self)
+            elif self.rdr.addr.type != PF_ADDR_NONE:
+                s += " rdr-to {.rdr}".format(self)
 
         if self.rt == PF_ROUTETO:
-            s += " route-to {0.route}".format(self)
+            s += " route-to {.route}".format(self)
         elif self.rt == PF_REPLYTO:
-            s += " reply-to {0.route}".format(self)
+            s += " reply-to {.route}".format(self)
         elif self.rt == PF_DUPTO:
-            s += " dup-to {0.route}".format(self)
+            s += " dup-to {.route}".format(self)
 
         if self.prio[0] != PF_PRIO_NOTSET:
             if self.prio[0] == self.prio[1]:
-                s += " prio {0}".format(self.prio[0])
+                s += " prio {}".format(self.prio[0])
             else:
-                s += " prio ({0}, {1})".format(*self.prio)
+                s += " prio ({}, {})".format(*self.prio)
 
         return s
 

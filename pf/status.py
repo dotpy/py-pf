@@ -1,4 +1,4 @@
-"""Class representing the internal Packet Filter statistics and counters.
+"""Classes representing the internal Packet Filter statistics and counters.
 
 PFStatus objects contain a series of runtime statistical information describing
 the current status of the Packet Filter.
@@ -7,27 +7,16 @@ the current status of the Packet Filter.
 import time
 from socket import ntohl
 
-from PF._PFStruct import pf_status, pfi_kif
-from PF.PFConstants import *
-from PF.PFUtils import PFObject
+from pf.constants import *
+from pf._struct import pf_status, pfi_kif
+from pf._base import PFObject
+from pf._utils import dbg_levels
 
 
 __all__ = ['PFStatus',
            'PFIface']
 
 
-# Dictionaries for mapping constants to strings ################################
-dbg_levels = {LOG_EMERG:   "emerg",
-              LOG_ALERT:   "alert",
-              LOG_CRIT:    "crit",
-              LOG_ERR:     "err",
-              LOG_WARNING: "warning",
-              LOG_NOTICE:  "notice",
-              LOG_INFO:    "info",
-              LOG_DEBUG:   "debug"}
-
-
-# PFStatus class ###############################################################
 class PFStatus(PFObject):
     """Class representing the internal Packet Filter statistics and counters."""
 
@@ -48,7 +37,7 @@ class PFStatus(PFObject):
         self.debug     = s.debug
         self.hostid    = ntohl(s.hostid) & 0xffffffff
         self.reass     = s.reass
-        self.pf_chksum = "0x" + "".join(map("{0:02x}".format, s.pf_chksum))
+        self.pf_chksum = "0x" + "".join(map("{:02x}".format, s.pf_chksum))
 
         self.cnt       = {'match':                    s.counters[0],
                           'bad-offset':               s.counters[1],
@@ -103,17 +92,18 @@ class PFStatus(PFObject):
             day, sec = divmod(runtime, 60)
             day, min = divmod(day, 60)
             day, hrs = divmod(day, 24)
-            s += " for {0} days {1:02}:{2:02}:{3:02}".format(day, hrs, min, sec)
+            s += " for {} days {:02}:{:02}:{:02}".format(day, hrs, min, sec)
 
-        dbg = dbg_levels.get(self.debug, "unknown")
-        s = "{0:<44}{1:>15}\n\n".format(s, "Debug: " + dbg)
-        s += "Hostid:   0x{0.hostid:08x}\n".format(self)
-        s += "Checksum: {0.pf_chksum}\n\n".format(self)
+        dbg = next((k for k, v in dbg_levels.iteritems() if v == self.debug),
+                   "unknown")
+        s = "{:<44}{:>15}\n\n".format(s, "Debug: " + dbg)
+        s += "Hostid:   0x{.hostid:08x}\n".format(self)
+        s += "Checksum: {.pf_chksum}\n\n".format(self)
 
         if self.ifname:
             fmt = "  {0:<25} {1[0]:>14d} {1[1]:>16d}\n"
-            s += "Interface Stats for {0.ifname:<16} ".format(self)
-            s += "{0:>5} {1:>16}\n".format("IPv4", "IPv6")
+            s += "Interface Stats for {.ifname:<16} ".format(self)
+            s += "{:>5} {:>16}\n".format("IPv4", "IPv6")
             s += fmt.format("Bytes In", self.bytes["in"])
             s += fmt.format("Bytes Out", self.bytes["out"])
             s += "  Packets In\n"
@@ -124,36 +114,37 @@ class PFStatus(PFObject):
             s += fmt.format("  Blocked", self.packets["out"][PF_DROP])
             s += "\n"
 
-        s += "{0:<27} {1:>14} {2:>16}\n".format("State Table", "Total", "Rate")
-        s += "  {0:<25} {1.states:>14d}".format("current entries", self)
+        s += "{:<27} {:>14} {:>16}\n".format("State Table", "Total", "Rate")
+        s += "  {:<25} {.states:>14d}".format("current entries", self)
         for k, v in self.fcnt.iteritems():
-            s += "\n  {0:<25} {1:>14d} ".format(k, v)
-            if self.since:
-                s += "{0:>14.1f}/s".format(float(v)/runtime)
+            s += "\n  {:<25} {:>14d} ".format(k, v)
+            if self.since and runtime:
+                s += "{:>14.1f}/s".format(float(v)/runtime)
 
         s += "\nSource Tracking Table\n"
-        s += "  {0:<25} {1.src_nodes:>14d}".format("current entries", self)
+        s += "  {:<25} {.src_nodes:>14d}".format("current entries", self)
         for k, v in self.scnt.iteritems():
-            s += "\n  {0:<25} {1:>14d} ".format(k, v)
-            if self.since:
-                s += "{0:>14.1f}/s".format(float(v)/runtime)
+            s += "\n  {:<25} {:>14d} ".format(k, v)
+            if self.since and runtime:
+                s += "{:>14.1f}/s".format(float(v)/runtime)
 
         s += "\nCounters"
         for k, v in self.cnt.iteritems():
-            s += "\n  {0:<25} {1:>14d} ".format(k, v)
-            if self.since:
-                s += "{0:>14.1f}/s".format(float(v)/runtime)
+            s += "\n  {:<25} {:>14d} ".format(k, v)
+            if self.since and runtime:
+                s += "{:>14.1f}/s".format(float(v)/runtime)
 
         s += "\nLimit Counters"
         for k, v in self.lcnt.iteritems():
-            s += "\n  {0:<25} {1:>14d} ".format(k, v)
-            if self.since:
-                s += "{0:>14.1f}/s".format(float(v)/runtime)
+            s += "\n  {:<25} {:>14d} ".format(k, v)
+            if self.since and runtime:
+                s += "{:>14.1f}/s".format(float(v)/runtime)
 
         return s
 
+
 class PFIface(PFObject):
-    """Class representing a network interface"""
+    """Class representing a network interface."""
 
     _struct_type = pfi_kif
 
@@ -163,29 +154,29 @@ class PFIface(PFObject):
 
     def _from_struct(self, i):
         """Initialize class attributes from a pfi_kif structure."""
-        self.name       = i.pfik_name
-        self.packets    = {'in':  ((i.pfik_packets[0][0][PF_PASS],
-                                    i.pfik_packets[1][0][PF_PASS]),
-                                   (i.pfik_packets[0][0][PF_DROP],
-                                    i.pfik_packets[1][0][PF_DROP])),
-                           'out': ((i.pfik_packets[0][1][PF_PASS],
-                                    i.pfik_packets[1][1][PF_PASS]),
-                                   (i.pfik_packets[0][1][PF_DROP],
-                                    i.pfik_packets[1][1][PF_DROP]))}
-        self.bytes      = {'in':  ((i.pfik_bytes[0][0][PF_PASS],
-                                    i.pfik_bytes[1][0][PF_PASS]),
-                                   (i.pfik_bytes[0][0][PF_DROP],
-                                    i.pfik_bytes[1][0][PF_DROP])),
-                           'out': ((i.pfik_bytes[0][1][PF_PASS],
-                                    i.pfik_bytes[1][1][PF_PASS]),
-                                   (i.pfik_bytes[0][1][PF_DROP],
-                                    i.pfik_bytes[1][1][PF_DROP]))}
-        self.flags      = i.pfik_flags
-        self.flags_new  = i.pfik_flags_new
-        self.states     = i.pfik_states
-        self.rules      = i.pfik_rules
-        self.routes     = i.pfik_routes
+        self.name      = i.pfik_name
+        self.packets   = {'in':  ((i.pfik_packets[0][0][PF_PASS],
+                                   i.pfik_packets[1][0][PF_PASS]),
+                                  (i.pfik_packets[0][0][PF_DROP],
+                                   i.pfik_packets[1][0][PF_DROP])),
+                          'out': ((i.pfik_packets[0][1][PF_PASS],
+                                   i.pfik_packets[1][1][PF_PASS]),
+                                  (i.pfik_packets[0][1][PF_DROP],
+                                   i.pfik_packets[1][1][PF_DROP]))}
+        self.bytes     = {'in':  ((i.pfik_bytes[0][0][PF_PASS],
+                                   i.pfik_bytes[1][0][PF_PASS]),
+                                  (i.pfik_bytes[0][0][PF_DROP],
+                                   i.pfik_bytes[1][0][PF_DROP])),
+                          'out': ((i.pfik_bytes[0][1][PF_PASS],
+                                   i.pfik_bytes[1][1][PF_PASS]),
+                                  (i.pfik_bytes[0][1][PF_DROP],
+                                   i.pfik_bytes[1][1][PF_DROP]))}
+        self.flags     = i.pfik_flags
+        self.flags_new = i.pfik_flags_new
+        self.states    = i.pfik_states
+        self.rules     = i.pfik_rules
+        self.routes    = i.pfik_routes
 
     def _to_string(self):
-        """Return a string containing the description of the interface"""
+        """Return a string containing the description of the interface."""
         return self.name

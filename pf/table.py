@@ -5,9 +5,10 @@ from ctypes import *
 import re
 import time
 
-from PF.PFConstants import *
-from PF._PFStruct import *
-from PF.PFUtils import *
+from pf.constants import *
+from pf._struct import *
+from pf._base import PFObject
+from pf._utils import ctonm, nmtoc
 
 
 __all__ = ['PFTableAddr',
@@ -15,7 +16,6 @@ __all__ = ['PFTableAddr',
            'PFTStats']
 
 
-# PFTableAddr class ############################################################
 class PFTableAddr(PFObject):
     """Represents an address in a PF table."""
 
@@ -49,7 +49,7 @@ class PFTableAddr(PFObject):
 
         m = re.compile(addr_re).match(a)
         if not m:
-            raise ValueError("Could not parse address: '{0}'".format(a))
+            raise ValueError("Could not parse address: '{}'".format(a))
 
         self.neg = bool(m.group("neg"))
 
@@ -94,12 +94,11 @@ class PFTableAddr(PFObject):
 
         bits = nmtoc(self.mask, self.af)
         if not ((self.af == AF_INET and bits == 32) or (bits == 128)):
-            s += "/{0:d}".format(bits)
+            s += "/{}".format(bits)
 
         return s
 
 
-# PFTable class ################################################################
 class PFTable(PFObject):
     """Represents a PF table."""
 
@@ -152,15 +151,14 @@ class PFTable(PFObject):
         s += ('r' if (self.flags & PFR_TFLAG_REFERENCED) else '-')
         s += ('h' if (self.flags & PFR_TFLAG_REFDANCHOR) else '-')
         s += ('C' if (self.flags & PFR_TFLAG_COUNTERS) else '-')
-        s += "\t{0.name}".format(self)
+        s += "\t{.name}".format(self)
 
         if self.anchor:
-            s += "\t{0.anchor}".format(self)
+            s += "\t{.anchor}".format(self)
 
         return s
 
 
-# PFTStats class ###############################################################
 class PFTStats(PFObject):
     """ """
 
@@ -186,19 +184,19 @@ class PFTStats(PFObject):
 
     def _to_string(self):
         """ """
-        s  = "{0.table}\n".format(self)
-        s += "\tAddresses:   {0.cnt:d}\n".format(self)
-        s += "\tCleared:     {0}\n".format(time.ctime(self.cleared))
+        s  = "{.table}\n".format(self)
+        s += "\tAddresses:   {.cnt:d}\n".format(self)
+        s += "\tCleared:     {}\n".format(time.ctime(self.cleared))
         s += "\tReferences:  [ Anchors: {anchors:<18d} Rules: {rules:<18d} ]\n"
         s += "\tEvaluations: [ NoMatch: {nomatch:<18d} Match: {match:<18d} ]\n"
         s = s.format(**dict(self.refcnt, **self.evalcnt))
 
         pfr_ops = ("Block:", "Pass:", "XPass:")
         for o, p, b in zip(pfr_ops, self.packets["in"], self.bytes["in"]):
-            l = "\tIn/{0:<6s}    [ Packets: {1:<18d} Bytes: {2:<18d} ]\n"
+            l = "\tIn/{:<6s}    [ Packets: {:<18d} Bytes: {:<18d} ]\n"
             s += l.format(o, p, b)
         for o, p, b in zip(pfr_ops, self.packets["out"], self.bytes["out"]):
-            l = "\tOut/{0:<6s}   [ Packets: {1:<18d} Bytes: {2:<18d} ]\n"
+            l = "\tOut/{:<6s}   [ Packets: {:<18d} Bytes: {:<18d} ]\n"
             s += l.format(o, p, b)
 
         return s.rstrip()

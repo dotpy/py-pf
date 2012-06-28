@@ -1,40 +1,33 @@
 #!/usr/bin/env python
 
 """
-This is the installation and setup script of the py-PF module, which allows you
-to manage OpenBSD's Packet Filter from Python scripts. You can run it by typing
-(as root):
+This is the setup script of py-pf. You can install the module by running it with
+the 'install' command:
 
-  python setup.py install
+    # python setup.py install
 
-in the directory you expanded the source into. This will copy the PF module in
-the third-party modules directory, i.e. /usr/local/lib/python2.x/site-packages.
+or run unit tests by calling it with the 'test' command:
+
+    # python setup.py install
 """
 
-
-import sys
 from distutils.core import setup
+from pf.tests import TestCommand
 
 
 __author__ = "Daniele Mazzocchio <danix@kernel-panic.it>"
-__version__ = "0.0.7"
-__date__    = "Nov 22, 2011"
+__version__ = "0.0.8"
+__date__    = "Jun 27, 2012"
 
 
-# Python versions prior 2.2.3 don't support 'classifiers' and 'download_url'
-if sys.version < "2.2.3":
-    from distutils.dist import DistributionMetadata
-    DistributionMetadata.classifiers = None
-    DistributionMetadata.download_url = None
-
-setup(name         = "py-PF",
+setup(name         = "py-pf",
       version      = __version__,
       author       = "Daniele Mazzocchio",
       author_email = "danix@kernel-panic.it",
       url          = "http://www.kernel-panic.it/software/py-pf/",
       download_url = "http://sourceforge.net/projects/py-pf/",
-      packages     = ["PF"],
-      requires     = ["ctypes"],
+      packages     = ["pf"],
+      cmdclass     = {"test": TestCommand},
       license      = "OSI-Approved :: BSD License",
       description  = "Pure-Python module for managing OpenBSD's Packet Filter",
       classifiers  = ["Development status :: 2 - Pre-Alpha",

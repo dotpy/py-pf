@@ -1,66 +1,94 @@
 """Miscellaneous network and PF-related utilities"""
 
 
-from __future__ import with_statement
 import re
 from socket import *
 from ctypes import addressof
 from fcntl import ioctl
 
-from PF.PFConstants import *
-from PF._PFStruct import ifreq, if_data
-
-
-__all__ = ['PFObject',
-           'getprotobynumber',
-           'geticmpcodebynumber',
-           'geticmptypebynumber',
-           'ctonm',
-           'nmtoc',
-           'rate2str',
-           'getifmtu']
-
-
-# PFObject #####################################################################
-class PFObject(object):
-    """Base class for wrapper objects around Structures."""
-
-    _struct_type = None
-
-    def __init__(self, obj=None, **kwargs):
-        """Check the type of obj and initialize instance attributes."""
-
-        if self._struct_type is not None and isinstance(obj, self._struct_type):
-            self._from_struct(obj)
-        elif isinstance(obj, basestring):
-            self._from_string(obj)
-        
-        self._from_kwargs(**kwargs)
-
-    def _from_struct(self, struct):
-        raise NotImplementedError()
-
-    def _from_string(self, line):
-        raise NotImplementedError()
-
-    def _from_kwargs(self, **kwargs):
-        for k, v in kwargs.iteritems():
-            if hasattr(self, k):
-                setattr(self, k, v)
-            else:
-                raise AttributeError("Unexpected argument: {0}".format(k))
-
-    def _to_struct(self):
-        raise NotImplementedError()
-    
-    def _to_string(self):
-        raise NotImplementedError()
-
-    def __str__(self):
-        return self._to_string()
+from pf.constants import *
+from pf._struct import ifreq, if_data
 
 
 # Dictionaries for mapping strings to constants ################################
+# Debug levels
+dbg_levels  = {"emerg":  LOG_EMERG,
+               "alert":  LOG_ALERT,
+               "crit":   LOG_CRIT,
+               "err":    LOG_ERR,
+               "warn":   LOG_WARNING,
+               "notice": LOG_NOTICE,
+               "info":   LOG_INFO,
+               "debug":  LOG_DEBUG}
+
+# Memory limits
+pf_limits   = {"states":        PF_LIMIT_STATES,
+               "src-nodes":     PF_LIMIT_SRC_NODES,
+               "frags":         PF_LIMIT_FRAGS,
+               "tables":        PF_LIMIT_TABLES,
+               "table-entries": PF_LIMIT_TABLE_ENTRIES}
+
+# Ports, UIDs and GIDs operators
+pf_ops      = {"":   PF_OP_NONE,
+               "><": PF_OP_IRG,
+               "<>": PF_OP_XRG,
+               "=":  PF_OP_EQ,
+               "!=": PF_OP_NE,
+               "<":  PF_OP_LT,
+               "<=": PF_OP_LE,
+               ">":  PF_OP_GT,
+               ">=": PF_OP_GE,
+               ":":  PF_OP_RRG}
+
+# Interface modifiers
+pf_if_mods  = {"network":   PFI_AFLAG_NETWORK,
+               "broadcast": PFI_AFLAG_BROADCAST,
+               "peer":      PFI_AFLAG_PEER,
+               "0":         PFI_AFLAG_NOALIAS}
+
+# Global timeouts
+pf_timeouts = {"tcp.first":       PFTM_TCP_FIRST_PACKET,
+               "tcp.opening":     PFTM_TCP_OPENING,
+               "tcp.established": PFTM_TCP_ESTABLISHED,
+               "tcp.closing":     PFTM_TCP_CLOSING,
+               "tcp.finwait":     PFTM_TCP_FIN_WAIT,
+               "tcp.closed":      PFTM_TCP_CLOSED,
+               "tcp.tsdiff":      PFTM_TS_DIFF,
+               "udp.first":       PFTM_UDP_FIRST_PACKET,
+               "udp.single":      PFTM_UDP_SINGLE,
+               "udp.multiple":    PFTM_UDP_MULTIPLE,
+               "icmp.first":      PFTM_ICMP_FIRST_PACKET,
+               "icmp.error":      PFTM_ICMP_ERROR_REPLY,
+               "other.first":     PFTM_OTHER_FIRST_PACKET,
+               "other.single":    PFTM_OTHER_SINGLE,
+               "other.multiple":  PFTM_OTHER_MULTIPLE,
+               "frag":            PFTM_FRAG,
+               "interval":        PFTM_INTERVAL,
+               "adaptive.start":  PFTM_ADAPTIVE_START,
+               "adaptive.end":    PFTM_ADAPTIVE_END,
+               "src.track":       PFTM_SRC_NODE}
+
+
+# Dictionaries for mapping constants to strings ################################
+# TCP states
+tcpstates = {TCPS_CLOSED:       "CLOSED",
+             TCPS_LISTEN:       "LISTEN",
+             TCPS_SYN_SENT:     "SYN_SENT",
+             TCPS_SYN_RECEIVED: "SYN_RCVD",
+             TCPS_ESTABLISHED:  "ESTABLISHED",
+             TCPS_CLOSE_WAIT:   "CLOSE_WAIT",
+             TCPS_FIN_WAIT_1:   "FIN_WAIT_1",
+             TCPS_CLOSING:      "CLOSING",
+             TCPS_LAST_ACK:     "LAST_ACK",
+             TCPS_FIN_WAIT_2:   "FIN_WAIT_2",
+             TCPS_TIME_WAIT:    "TIME_WAIT"}
+
+# UDP states
+udpstates = {PFUDPS_NO_TRAFFIC: "NO_TRAFFIC",
+             PFUDPS_SINGLE:     "SINGLE",
+             PFUDPS_MULTIPLE:   "MULTIPLE"}
+
+# ICMP and ICMPv6 codes and types
 icmp_codes = {
     (ICMP_UNREACH,        ICMP_UNREACH_NET):                 "net-unr",
     (ICMP_UNREACH,        ICMP_UNREACH_HOST):                "host-unr",
@@ -173,9 +201,9 @@ def getprotobynumber(number, file="/etc/protocols"):
     with open(file, 'r') as f:
         for line in f:
             m = r.match(line)
-            if m:
-                if int(m.group("num")) == number:
-                    return m.group("proto")
+            if m and int(m.group("num")) == number:
+                return m.group("proto")
+
 
 def geticmpcodebynumber(type, code, af):
     """Return the ICMP code as a string."""
@@ -185,6 +213,7 @@ def geticmpcodebynumber(type, code, af):
     except KeyError:
         return None
 
+
 def geticmptypebynumber(type, af):
     """Return the ICMP type as a string."""
     it = icmp_types if (af != AF_INET6) else icmp6_types
@@ -192,6 +221,7 @@ def geticmptypebynumber(type, af):
         return it[type]
     except KeyError:
         return None
+
 
 def ctonm(cidr, af):
     """Convert netmask from CIDR to dotted decimal notation."""
@@ -205,6 +235,7 @@ def ctonm(cidr, af):
 
     return inet_ntop(af, mask)
 
+
 def nmtoc(netmask, af):
     """Convert netmask from dotted decimal to CIDR notation."""
     cidr = 0
@@ -215,19 +246,21 @@ def nmtoc(netmask, af):
 
     return cidr
 
+
 def rate2str(bw):
     """ """
     units = [" ", "K", "M", "G"]
-    for i in range(4):
+    for i in range(len(units)):
         if bw >= 1000:
             bw /= 1000.0
         else:
             break
 
-    if bw.is_integer():
-        return "{0:d}{1}b".format(int(bw), units[i])
+    if int(bw * 100 % 100):
+        return "{:.2f}{}b".format(bw, units[i])
     else:
-        return "{0:.2f}{1}b".format(bw, units[i])
+        return "{}{}b".format(int(bw), units[i])
+
 
 def getifmtu(ifname):
     """Quick hack to get MTU and speed for a specified interface."""

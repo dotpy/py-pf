@@ -1,14 +1,18 @@
 """Classes to represent Packet Filter's queueing schedulers."""
 
-from PF._PFStruct import pf_altq
-from PF.PFConstants import *
-from PF.PFUtils import *
-from PF import PFError
+from pf.constants import *
+from pf._struct import *
+from pf._base import PFObject
+from pf._utils import rate2str, getifmtu
+from pf import PFError
 
 
 __all__ = ['PFAltqCBQ',
            'PFAltqHFSC',
-           'PFAltqPriQ']
+           'PFAltqPriQ',
+           'CBQStats',
+           'PriQStats',
+           'HFSCStats']
 
 
 # PFAltq class #################################################################
@@ -37,7 +41,7 @@ class PFAltq(PFObject):
         if not self.ifbandwidth:
             if not ifbw:
                 raise PFError("No ifbandwidth for interface " +
-                              "'{0.ifname}'".format(self))
+                              "'{.ifname}'".format(self))
             self.ifbandwidth = ifbw
 
         if not self.qname and not self.parent:
@@ -112,16 +116,16 @@ class PFAltq(PFObject):
         """ """
         altqs = {ALTQT_CBQ: "cbq", ALTQT_PRIQ: "priq", ALTQT_HFSC: "hfsc"}
 
-        s  = "altq on {0.ifname} ".format(self)
-        s += "{0} {1}".format(altqs[self.scheduler], self._str_opts())
+        s  = "altq on {.ifname} ".format(self)
+        s += "{} {}".format(altqs[self.scheduler], self._str_opts())
 
         if (0 < self.ifbandwidth < 100):
-            s += "bandwidth {0.ifbandwidth}% ".format(self)
+            s += "bandwidth {.ifbandwidth}% ".format(self)
         elif (self.ifbandwidth >= 100):
-            s += "bandwidth {0} ".format(rate2str(self.ifbandwidth))
+            s += "bandwidth {} ".format(rate2str(self.ifbandwidth))
         if self.qlimit != DEFAULT_QLIMIT:
-            s += "qlimit {0.qlimit:d} ".format(self)
-        s += "tbrsize {0.tbrsize:d}".format(self)
+            s += "qlimit {.qlimit} ".format(self)
+        s += "tbrsize {.tbrsize}".format(self)
 
         return s
 
@@ -134,15 +138,15 @@ class PFAltq(PFObject):
 
         if self.scheduler in (ALTQT_CBQ, ALTQT_HFSC):
             if (0 < self.bandwidth < 100):
-                s += "bandwidth {0.bandwidth}% ".format(self)
+                s += "bandwidth {.bandwidth}% ".format(self)
             elif (self.bandwidth >= 100):
-                s += "bandwidth {0} ".format(rate2str(self.bandwidth))
+                s += "bandwidth {} ".format(rate2str(self.bandwidth))
         if self.priority != DEFAULT_PRIORITY:
-            s += "priority {0.priority:d} ".format(self)
+            s += "priority {.priority} ".format(self)
         if self.qlimit != DEFAULT_QLIMIT:
-            s += "qlimit {0.qlimit:d} ".format(self)
+            s += "qlimit {.qlimit} ".format(self)
         if opts:
-            s += "{0}{1}".format(altqs[self.scheduler], opts)
+            s += "{}{}".format(altqs[self.scheduler], opts)
 
         return s
 
@@ -151,6 +155,7 @@ class PFAltq(PFObject):
         return (self._str_queue() if self.qname else self._str_altq())
 
 
+# Queue-specific classes #######################################################
 class PFAltqCBQ(PFAltq):
     """ """
 
@@ -291,6 +296,15 @@ class PFAltqHFSC(PFAltq):
         q.pq_u.hfsc_opts.ulsc_m2 = self.ulsc[2]
         q.pq_u.hfsc_opts.flags   = self.optflags
 
+    def _str_sc(self, m1, d, m2):
+        """ """
+        s = ""
+        if m2:
+            s = " {}".format(rate2str(m2))
+        if d:
+            s = "({} {}{})".format(rate2str(m1), d, s)
+        return s
+
     def _str_opts(self):
         """ """
         opts = []
@@ -308,17 +322,14 @@ class PFAltqHFSC(PFAltq):
             if self.optflags & HFCF_DEFAULTCLASS:
                 opts.append("default")
             if self.rtsc[2]:
-                opts.append("realtime")
-                #opts
+                opts.append("realtime" + self._str_sc(*self.rtsc))
             if (self.lssc[2] and (self.lssc[2] != self.bandwidth or
                                   self.lssc[1])):
-                opts.append("linkshare")
-                #opts
+                opts.append("linkshare" + self._str_sc(*self.lssc))
             if self.ulsc[2]:
-                opts.append("upperlimit")
-                #opts
+                opts.append("upperlimit" + self._str_sc(*self.ulsc))
 
-        return ("( {0} ) ".format(" ".join(opts)) if opts else "")
+        return ("( {} ) ".format(" ".join(opts)) if opts else "")
 
 
 class PFAltqPriQ(PFAltq):
@@ -350,4 +361,86 @@ class PFAltqPriQ(PFAltq):
         if self.optflags & PRCF_DEFAULTCLASS:
             opts.append("default")
 
-        return ("( {0} ) ".format(" ".join(opts)) if opts else "")
+        return ("( {} ) ".format(" ".join(opts)) if opts else "")
+
+
+# Queue statistics classes #####################################################
+class CBQStats(PFObject):
+    """ """
+
+    _struct_type = class_stats_t
+
+    def __init__(self, queue, stats):
+        """ """
+        super(CBQStats, self).__init__(stats)
+        self.queue = queue
+
+    def _from_struct(self, s):
+        """ """
+        self.packets = (s.xmit_cnt.packets, s.drop_cnt.packets)
+        self.bytes   = (s.xmit_cnt.bytes, s.drop_cnt.bytes)
+        self.length  = s.qcnt
+        self.limit   = s.qmax
+        self.borrows = s.borrows
+        self.delays  = s.delays
+
+    def _to_string(self):
+        """ """
+        s  = "{0.queue}\n"
+        s += "  [ pkts: {0.packets[0]:10}  bytes: {0.bytes[0]:10}"
+        s += "  dropped pkts: {0.packets[1]:6} bytes: {0.bytes[1]:6} ]\n"
+        s += "  [ qlength: {0.length:3}/{0.limit:3}"
+        s += "  borrows: {0.borrows:6}  suspends: {0.delays:6} ]"
+        return s.format(self)
+
+
+class PriQStats(PFObject):
+    """ """
+
+    _struct_type = priq_classstats
+
+    def __init__(self, queue, stats):
+        """ """
+        super(PriQStats, self).__init__(stats)
+        self.queue = queue
+
+    def _from_struct(self, s):
+        """ """
+        self.packets = (s.xmitcnt.packets, s.dropcnt.packets)
+        self.bytes   = (s.xmitcnt.bytes, s.dropcnt.bytes)
+        self.length  = s.qlength
+        self.limit   = s.qlimit
+
+    def _to_string(self):
+        """ """
+        s  = "{0.queue}\n"
+        s += "  [ pkts: {0.packets[0]:10}  bytes: {0.bytes[0]:10}"
+        s += "  dropped pkts: {0.packets[1]:6} bytes: {0.bytes[1]:6} ]\n"
+        s += "  [ qlength: {0.length:3}/{0.limit:3} ]"
+        return s.format(self)
+
+
+class HFSCStats(PFObject):
+    """ """
+
+    _struct_type = hfsc_classstats
+
+    def __init__(self, queue, stats):
+        """ """
+        super(HFSCStats, self).__init__(stats)
+        self.queue = queue
+
+    def _from_struct(self, s):
+        """ """
+        self.packets = (s.xmit_cnt.packets, s.drop_cnt.packets)
+        self.bytes   = (s.xmit_cnt.bytes, s.drop_cnt.bytes)
+        self.length  = s.qlength
+        self.limit   = s.qlimit
+
+    def _to_string(self):
+        """ """
+        s  = "{0.queue}\n"
+        s += "  [ pkts: {0.packets[0]:10}  bytes: {0.bytes[0]:10}"
+        s += "  dropped pkts: {0.packets[1]:6} bytes: {0.bytes[1]:6} ]\n"
+        s += "  [ qlength: {0.length:3}/{0.limit:3} ]"
+        return s.format(self)
