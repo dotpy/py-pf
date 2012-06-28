@@ -18,6 +18,11 @@ run the install script:
     # python setup.py install
 
 
+Tests
+-----
+To run the test suite, just run `python setup.py test`.
+
+
 Documentation
 -------------
 A detailed description of the PF module and its classes is available at
