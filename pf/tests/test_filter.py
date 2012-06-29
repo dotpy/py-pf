@@ -10,7 +10,7 @@ import pf
 
 
 class TestPacketFilter(unittest.TestCase):
-    """Test case class for PF.PacketFilter"""
+    """Test case class for pf.PacketFilter"""
 
     testif = "lo0"
 
