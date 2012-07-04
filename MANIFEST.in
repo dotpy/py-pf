@@ -1,5 +1,5 @@
-include README
-include LICENSE
-include CHANGELOG
+include README.md
+include LICENSE.md
+include CHANGELOG.md
 include setup.py
 include PF/*
