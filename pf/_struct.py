@@ -683,5 +683,6 @@ class if_data(Structure):               # From /usr/include/net/if.h
                 ("ifi_omcasts",      c_uint64),
                 ("ifi_iqdrops",      c_uint64),
                 ("ifi_noproto",      c_uint64),
+                ("ifi_capabilities", c_uint32),
                 ("ifi_lastchange",   timeval),
                 ("ifi_mclpool",      _mclpool * _MCLPOOLS)]
