@@ -254,14 +254,14 @@ class TestPacketFilter(unittest.TestCase):
                       dst=pf.PFRuleAddr(iface, pf.PFPort("ssh", IPPROTO_TCP)),
                       flags="S", flagset="SA",
                       keep_state=pf.PF_STATE_NORMAL),
-            # pass in on $ifname inet proto tcp to $ifname port 80 \
+            # pass in on $ifname inet proto tcp to $ifname port www \
             #     rdr-to <web_srv> round-robin sticky-address
             pf.PFRule(action=pf.PF_PASS,
                       direction=pf.PF_IN,
                       ifname=self.testif,
                       af=AF_INET,
                       proto=IPPROTO_TCP,
-                      dst=pf.PFRuleAddr(iface, pf.PFPort(80, IPPROTO_TCP)),
+                      dst=pf.PFRuleAddr(iface, pf.PFPort("www", IPPROTO_TCP)),
                       flags="S", flagset="SA",
                       keep_state=pf.PF_STATE_NORMAL,
                       rdr=pf.PFPool(pf.PF_POOL_RDR, pf.PFAddr("<web_srv>"),

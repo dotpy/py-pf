@@ -2,4 +2,4 @@ include README.md
 include LICENSE.md
 include CHANGELOG.md
 include setup.py
-include PF/*
+recursive-include pf *.py
