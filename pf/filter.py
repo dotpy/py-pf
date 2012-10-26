@@ -20,7 +20,7 @@ from pf.state import PFState
 from pf.status import PFStatus, PFIface
 from pf.table import PFTableAddr, PFTable, PFTStats
 from pf.rule import PFRule, PFRuleset, pf_timeouts
-from pf._utils import dbg_levels, pf_limits, pf_timeouts
+from pf._utils import dbg_levels, pf_limits, pf_timeouts, pf_hints
 
 
 __all__ = ['PacketFilter']
@@ -299,6 +299,18 @@ class PacketFilter(object):
                 ioctl(d, DIOCSETTIMEOUT, tm.asBuffer())
 
         return tm.seconds
+
+    def set_optimization(self, opt="normal"):
+        """Set the optimization profile for state handling like pfctl."""
+        for name, val in pf_hints[opt].items():
+            self.set_timeout(name, val)
+
+    def get_optimization(self):
+        """ """
+        tm = self.get_timeout()
+        for name, val in pf_hints.items():
+            if val["tcp.first"] == tm["tcp.first"]:
+                return name
 
     def get_ifaces(self, ifname=""):
         """Get the list of interfaces and interface drivers known to pf.
