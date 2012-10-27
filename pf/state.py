@@ -96,19 +96,18 @@ class PFState(PFObject):
         self.bytes           = ((b[0] << 32 | b[1]), (b[2] << 32 | b[3]))
 
         self.creatorid       = ntohl(s.creatorid) & 0xffffffff
-        #rtableid
-        #max_mss
+        self.rtableid        = s.rtableid
+        selfmax_mss          = s.max_mss
         self.af              = s.af
         self.proto           = s.proto
         self.direction       = s.direction
         self.log             = s.log
-        self.state_flags     = s.state_flags
         self.timeout         = s.timeout
         self.sync_flags      = s.sync_flags
         self.updates         = s.updates
         self.min_ttl         = s.min_ttl
         self.set_tos         = s.set_tos
-        self.all_state_flags = s.all_state_flags
+        self.state_flags     = s.state_flags
 
         if self.direction == PF_OUT:
             self.src         = PFStatePeer(s.src)
@@ -136,20 +135,22 @@ class PFState(PFObject):
         s  = "{.ifname} ".format(self)
         s += "{} ".format(getprotobynumber(self.proto) or self.proto)
 
-        s += "{}".format(nk.addr[1])
+        s += "{0.addr[1]}:{0.port[1]}".format(nk)
         if afto or (nk.addr[1] != sk.addr[1]) or (np[1] != sp[1]) or \
            (nk.rdomain != sk.rdomain):
-            s += " ({})".format(sk.addr[int(not afto)])
+            i = int(not afto)
+            s += " ({}:{})".format(sk.addr[i], sk.port[i])
 
         if self.direction == PF_OUT or (afto and self.direction == PF_IN):
             s += " -> "
         else:
             s += " <- "
 
-        s += "{}".format(nk.addr[0])
+        s += "{0.addr[0]}:{0.port[0]}".format(nk)
         if afto or (nk.addr[1] != nk.addr[1]) or (np[1] != sp[1]) or \
            (nk.rdomain != sk.rdomain):
-            s += " ({})".format(sk.addr[int(afto)])
+            i = int(afto)
+            s += " ({}:{})".format(sk.addr[i], sk.port[i])
 
         s += "       "
         if self.proto == IPPROTO_TCP:
@@ -195,7 +196,7 @@ class PFState(PFObject):
 
         if self.anchor != 0xffffffff:
             s += ", anchor {0.anchor}" .format(self)
-        if self.rule != -1:
+        if self.rule != 0xffffffff:
             s += ", rule {0.rule}".format(self)
         if self.state_flags & PFSTATE_SLOPPY:
             s += ", sloppy"

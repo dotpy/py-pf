@@ -39,7 +39,7 @@ __all__ = ['pfioc_limit',
            'if_data']
 
 
-# Constants ####################################################################
+# Constants
 IFNAMSIZ             = 16               # From /usr/include/net/if.h
 PFRES_MAX            = 15               # From /usr/include/net/pfvar.h
 LCNT_MAX             = 7                # From /usr/include/net/pfvar.h
@@ -56,12 +56,11 @@ PATH_MAX             = 1024             # From /usr/include/sys/syslimits.h
 MAXPATHLEN           = PATH_MAX         # From /usr/include/sys/param.h
 
 
-# BufferStructure Class ########################################################
 class BufferStructure(Structure):
     """A subclass of ctypes.Structure to simplify ioctl() system calls."""
 
     def __init__(self, **kw):
-        """Call the parent constructor."""
+        """Call the parent constructor"""
         super(BufferStructure, self).__init__(**kw)
 
     def asBuffer(self):
@@ -73,7 +72,6 @@ class BufferStructure(Structure):
         return (c_char * sizeof(self)).from_address(addressof(self))
 
 
-# Structures ###################################################################
 class pfioc_limit(BufferStructure):     # From /usr/include/net/pfvar.h
     _fields_ = [("index",             c_int),
                 ("limit",             c_uint)]
@@ -195,13 +193,13 @@ class pfsync_state(Structure):          # From /usr/include/net/pfvar.h
                 ("proto",             c_uint8),
                 ("direction",         c_uint8),
                 ("log",               c_uint8),
-                ("state_flags",       c_uint8),
+                ("pad0",              c_uint8),
                 ("timeout",           c_uint8),
                 ("sync_flags",        c_uint8),
                 ("updates",           c_uint8),
                 ("min_ttl",           c_uint8),
                 ("set_tos",           c_uint8),
-                ("all_state_flags",   c_uint16),
+                ("state_flags",       c_uint16),
                 ("pad",               c_uint8 * 2)]
 
 
@@ -356,7 +354,7 @@ class pf_rule(Structure):               # From /usr/include/net/pfvar.h
                 ("anchor_relative",   c_uint8),
                 ("anchor_wildcard",   c_uint8),
                 ("flush",             c_uint8),
-                ("prio",              c_uint8 * 2),
+                ("set_prio",          c_uint8 * 2),
                 ("naf",               c_uint8),       # sa_family_t
                 ("divert",            _divert),
                 ("divert_packet",     _divert)]

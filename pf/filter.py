@@ -26,7 +26,7 @@ from pf._utils import dbg_levels, pf_limits, pf_timeouts, pf_hints
 __all__ = ['PacketFilter']
 
 
-# ioctl() operations ###########################################################
+# ioctl() operations
 IOCPARM_MASK     = 0x1fff
 IOC_VOID         = 0x20000000L
 IOC_OUT          = 0x40000000L
@@ -104,7 +104,6 @@ DIOCCLRIFFLAG    = _IOWR('D', 90, pfioc_iface)
 DIOCSETREASS     = _IOWR('D', 92, c_uint32)
 
 
-# _PFTrans object ##############################################################
 class _PFTrans(object):
     """Class for managing transactions with the Packet Filter subsystem."""
 
@@ -134,7 +133,6 @@ class _PFTrans(object):
             ioctl(self.dev, DIOCXROLLBACK, self._pt.asBuffer())
 
 
-# PacketFilter class ###########################################################
 class PacketFilter(object):
     """Class representing the kernel's packet filtering subsystem.
 
@@ -302,13 +300,21 @@ class PacketFilter(object):
 
     def set_optimization(self, opt="normal"):
         """Set the optimization profile for state handling like pfctl."""
+<<<<<<< HEAD
         for name, val in pf_hints[opt].items():
+=======
+        for name, val in pf_hints[opt].iteritems():
+>>>>>>> Updated to OpenBSD 5.2
             self.set_timeout(name, val)
 
     def get_optimization(self):
         """ """
         tm = self.get_timeout()
+<<<<<<< HEAD
         for name, val in pf_hints.items():
+=======
+        for name, val in pf_hints.iteritems():
+>>>>>>> Updated to OpenBSD 5.2
             if val["tcp.first"] == tm["tcp.first"]:
                 return name
 
@@ -518,7 +524,7 @@ class PacketFilter(object):
                         qids[altq.qname] = pa.altq.qid
 
     def get_qstats(self):
-        """ """
+        """Get statistics for current ALTQs."""
         pa = pfioc_altq()
         pq = pfioc_qstats()
         qs = queue_stats()
@@ -553,7 +559,7 @@ class PacketFilter(object):
         return tuple(qstats)
 
     def _get_rules(self, path, dev, clear):
-        """ """
+        """Recursively retrieve rules from the specified ruleset."""
         if path.endswith("/*"):
             path = path[:-2]
 
@@ -579,7 +585,7 @@ class PacketFilter(object):
 
         return tables + rules
 
-    def get_ruleset(self, path="", clear=False):
+    def get_ruleset(self, path="", clear=False, **kw):
         """Return a PFRuleset object containing the active ruleset.
         
         'path' is the path of the anchor to retrieve rules from. If 'clear' is
@@ -590,7 +596,9 @@ class PacketFilter(object):
         with open(self.dev, 'r') as d:
             rs.append(*self._get_rules(path, d, clear))
 
-        return rs
+        if not kw:
+            return rs
+        
 
     def _inadefine(self, table, dev, path, ticket):
         """Define a table in the inactive ruleset."""

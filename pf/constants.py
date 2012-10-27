@@ -3,7 +3,7 @@
 from sys import maxint
 
 
-# Actions
+# Actions (from /usr/include/net/pfvar.h)
 PF_PASS                 = 0
 PF_DROP                 = 1
 PF_SCRUB                = 2
@@ -19,13 +19,14 @@ PF_DEFER                = 11
 PF_MATCH                = 12
 PF_DIVERT               = 13
 PF_RT                   = 14
+PF_AFRT                 = 15
 
-# PF transaction types
+# PF transaction types (from /usr/include/net/pfvar.h)
 PF_TRANS_RULESET        = 0
 PF_TRANS_ALTQ           = 1
 PF_TRANS_TABLE          = 2
 
-# PF rule flags
+# PF rule flags (from /usr/include/net/pfvar.h)
 PFRULE_DROP             = 0x0000
 PFRULE_RETURNRST        = 0x0001
 PFRULE_FRAGMENT         = 0x0002
@@ -35,14 +36,14 @@ PFRULE_NOSYNC           = 0x0010
 PFRULE_SRCTRACK         = 0x0020
 PFRULE_RULESRCTRACK     = 0x0040
 
-# PF rule flags
+# PF rule flags (from /usr/include/net/pfvar.h)
 PFRULE_IFBOUND          = 0x00010000
 PFRULE_STATESLOPPY      = 0x00020000
 PFRULE_PFLOW            = 0x00040000
 PFRULE_ONCE             = 0x00100000
 PFRULE_AFTO             = 0x00200000
 
-# Port comparison operators
+# Port comparison operators (from /usr/include/net/pfvar.h)
 PF_OP_NONE              = 0
 PF_OP_IRG               = 1
 PF_OP_EQ                = 2
@@ -54,37 +55,37 @@ PF_OP_GE                = 7
 PF_OP_XRG               = 8
 PF_OP_RRG               = 9
 
-# Rules retrieval options
+# Rules retrieval options (from /usr/include/net/pfvar.h)
 PF_GET_NONE             = 0
 PF_GET_CLR_CNTR         = 1
 
-# PF keep states
+# PF keep states (from /usr/include/net/pfvar.h)
 PF_STATE_NORMAL         = 0x1
 PF_STATE_MODULATE       = 0x2
 PF_STATE_SYNPROXY       = 0x3
 
-# Routing options
+# Routing options (from /usr/include/net/pfvar.h)
 PF_NOPFROUTE            = 0
 PF_ROUTETO              = 1
 PF_DUPTO                = 2
 PF_REPLYTO              = 3
 
-# Priority options
+# Priority options (from /usr/src/sys/net/pfvar.h)
 PF_PRIO_NOTSET		    = 0xff
 
-# State keys
+# State keys (from /usr/include/net/pfvar.h)
 PF_SK_WIRE              = 0
 PF_SK_STACK             = 1
 PF_SK_BOTH              = 2
 
-# Log options
+# Log options (from /usr/include/net/pfvar.h)
 PF_LOG                  = 0x01
 PF_LOG_ALL              = 0x02
 PF_LOG_SOCKET_LOOKUP    = 0x04
 PF_LOG_FORCE            = 0x08
 PF_LOG_MATCHES          = 0x10
 
-# Address types
+# Address types (from /usr/include/net/pfvar.h)
 PF_ADDR_ADDRMASK        = 0
 PF_ADDR_NOROUTE         = 1
 PF_ADDR_DYNIFTL         = 2
@@ -94,47 +95,47 @@ PF_ADDR_URPFFAILED      = 5
 PF_ADDR_RANGE           = 6
 PF_ADDR_NONE            = 7
 
-# OS fingerprints matches
+# OS fingerprints matches (from /usr/include/net/pfvar.h)
 PF_OSFP_ANY             = 0
 PF_OSFP_UNKNOWN         = -1
 PF_OSFP_NOMATCH         = -2
 
-# Interface flags
+# Interface flags (from /usr/include/net/pfvar.h)
 PFI_AFLAG_NETWORK       = 0x01
 PFI_AFLAG_BROADCAST     = 0x02
 PFI_AFLAG_PEER          = 0x04
 PFI_AFLAG_MODEMASK      = 0x07
 PFI_AFLAG_NOALIAS       = 0x08
 
-# Traffic directions
+# Traffic directions (from /usr/include/net/pfvar.h)
 PF_INOUT                = 0
 PF_IN                   = 1
 PF_OUT                  = 2
 PF_FWD                  = 3
 
-# Flush options
+# Flush options (from /usr/include/net/pfvar.h)
 PF_FLUSH                = 0x01
 PF_FLUSH_GLOBAL         = 0x02
 
-# TOS bits
+# IP type of service (from /usr/include/netinet/ip.h)
 IPTOS_LOWDELAY          = 0x10
 IPTOS_THROUGHPUT        = 0x08
 IPTOS_RELIABILITY       = 0x04
 
-# NAT ports range
+# NAT ports range (from /usr/src/sbin/pfctl/pfctl_parser.h)
 PF_NAT_PROXY_PORT_LOW   = 50001
 PF_NAT_PROXY_PORT_HIGH  = 65535
 
-# Pool IDs
+# Pool IDs (from /usr/src/sbin/pfctl/pfctl_parser.c)
 PF_POOL_ROUTE           = 0
 PF_POOL_NAT             = 1
 PF_POOL_RDR             = 2
 
-# Pool options
+# Pool options (from /usr/include/net/pfvar.h)
 PF_POOL_TYPEMASK        = 0x0f
 PF_POOL_STICKYADDR      = 0x20
 
-# Pool types
+# Pool types (from /usr/include/net/pfvar.h)
 PF_POOL_NONE            = 0
 PF_POOL_BITMASK         = 1
 PF_POOL_RANDOM          = 2
@@ -142,10 +143,10 @@ PF_POOL_SRCHASH         = 3
 PF_POOL_ROUNDROBIN      = 4
 PF_POOL_LEASTSTATES     = 5
 
-# Mask for window scaling factor
+# Mask for window scaling factor (from /usr/include/net/pfvar.h)
 PF_WSCALE_MASK          = 0x0f
 
-# Debug levels
+# Debug levels (from /usr/include/sys/syslog.h)
 LOG_EMERG               = 0
 LOG_ALERT               = 1
 LOG_CRIT                = 2
@@ -158,7 +159,7 @@ LOG_DEBUG               = 7
 # The 'unlimited' value for limits on the memory pools
 UINT_MAX                = maxint * 2 + 1
 
-# Limits
+# Limits (from /usr/include/net/pfvar.h)
 PF_LIMIT_STATES         = 0
 PF_LIMIT_SRC_NODES      = 1
 PF_LIMIT_FRAGS          = 2
@@ -166,7 +167,7 @@ PF_LIMIT_TABLES         = 3
 PF_LIMIT_TABLE_ENTRIES  = 4
 PF_LIMIT_MAX            = 5
 
-# Timeouts
+# Timeouts (from /usr/include/net/pfvar.h)
 PFTM_TCP_FIRST_PACKET   = 0
 PFTM_TCP_OPENING        = 1
 PFTM_TCP_ESTABLISHED    = 2
@@ -190,9 +191,8 @@ PFTM_TS_DIFF            = 19
 PFTM_MAX                = 20
 PFTM_PURGE              = 21
 PFTM_UNLINKED           = 22
-PFTM_UNTIL_PACKET       = 23
 
-# TCP States
+# TCP States (from /usr/include/netinet/tcp_fsm.h)
 TCPS_CLOSED             = 0
 TCPS_LISTEN             = 1
 TCPS_SYN_SENT           = 2
@@ -206,26 +206,27 @@ TCPS_FIN_WAIT_2         = 9
 TCPS_TIME_WAIT          = 10
 TCP_NSTATES             = 11
 
+# From /usr/include/net/pfvar.h
 PF_TCPS_PROXY_SRC       = TCP_NSTATES + 0
 PF_TCPS_PROXY_DST       = TCP_NSTATES + 1
 
-# UDP state enumeration
+# UDP state enumeration (from /usr/include/net/pfvar.h)
 PFUDPS_NO_TRAFFIC       = 0
 PFUDPS_SINGLE           = 1
 PFUDPS_MULTIPLE         = 2
 PFUDPS_NSTATES          = 3
 
-# States for non-TCP protocols
+# States for non-TCP protocols (from /usr/include/net/pfvar.h)
 PFOTHERS_NO_TRAFFIC     = 0
 PFOTHERS_SINGLE         = 1
 PFOTHERS_MULTIPLE       = 2
 PFOTHERS_NSTATES        = 3
 
-# Pfsync flags
+# Pfsync flags (from /usr/include/net/pfvar.h)
 PFSYNC_FLAG_SRCNODE     = 0x04
 PFSYNC_FLAG_NATSRCNODE  = 0x08
 
-# PF states flags
+# PF states flags (from /usr/include/net/pfvar.h)
 PFSTATE_ALLOWOPTS       = 0x0001
 PFSTATE_SLOPPY          = 0x0002
 PFSTATE_PFLOW           = 0x0004
@@ -235,12 +236,15 @@ PFSTATE_NODF            = 0x0020
 PFSTATE_SETTOS          = 0x0040
 PFSTATE_RANDOMID        = 0x0080
 PFSTATE_SCRUB_TCP       = 0x0100
+PFSTATE_SETPRIO         = 0x0200
+PFSTATE_SCRUBMASK       = PFSTATE_NODF|PFSTATE_RANDOMID|PFSTATE_SCRUB_TCP
+PFSTATE_SETMASK         = PFSTATE_SETTOS|PFSTATE_SETPRIO
 
-# Reassembly flags
+# Reassembly flags (from /usr/include/net/pfvar.h)
 PF_REASS_ENABLED        = 0x01
 PF_REASS_NODF           = 0x02
 
-# Table flags
+# Table flags (from /usr/include/net/pfvar.h)
 PFR_TFLAG_PERSIST       = 0x01
 PFR_TFLAG_CONST         = 0x02
 PFR_TFLAG_ACTIVE        = 0x04
@@ -268,53 +272,52 @@ PFR_OP_BLOCK            = 0
 PFR_OP_PASS             = 1
 PFR_OP_ADDR_MAX         = 2
 PFR_OP_TABLE_MAX        = 3
+PFR_OP_XPASS            = PFR_OP_ADDR_MAX
 
 PFR_REFCNT_RULE         = 0
 PFR_REFCNT_ANCHOR       = 1
 PFR_REFCNT_MAX          = 2
 
-# pfrke type
+# pfrke type (from /usr/include/net/pfvar.h)
 PFRKE_PLAIN             = 0
 PFRKE_ROUTE             = 1
 PFRKE_COST              = 2
 PFRKE_MAX               = 3
 
-# Interface flags
+# Interface flags (from /usr/include/net/pfvar.h)
 PFI_IFLAG_SKIP          = 0x0100
 
-# ALTQ constants
+# ALTQ constants (from /usr/include/altq/altq.h)
 ALTQT_CBQ               = 1
 ALTQT_HFSC              = 8
 ALTQT_PRIQ              = 11
 
+# From /usr/src/sbin/pfctl/pfctl.h
 DEFAULT_PRIORITY        = 1
 DEFAULT_QLIMIT          = 50
 
-# CBQ class flags
+# CBQ class flags (from /usr/include/altq/altq_cbq.h)
 CBQCLF_RED              = 0x0001
 CBQCLF_ECN              = 0x0002
 CBQCLF_RIO              = 0x0004
-CBQCLF_FLOWVALVE        = 0x0008
-CBQCLF_CLEARDSCP        = 0x0010
 CBQCLF_BORROW           = 0x0020
 CBQCLF_WRR              = 0x0100
-CBQCLF_EFFICIENT        = 0x0200
 CBQCLF_ROOTCLASS        = 0x1000
 CBQCLF_DEFCLASS         = 0x2000
-# PRIQ class flags
+# PRIQ class flags (from /usr/include/altq/altq_priq.h)
 PRCF_RED                = 0x0001
 PRCF_ECN                = 0x0002
 PRCF_RIO                = 0x0004
 PRCF_CLEARDSCP          = 0x0010
 PRCF_DEFAULTCLASS       = 0x1000
-# HFSC class flags
+# HFSC class flags (from /usr/include/altq/altq_hfsc.h)
 HFCF_RED                = 0x0001
 HFCF_ECN                = 0x0002
 HFCF_RIO                = 0x0004
 HFCF_CLEARDSCP          = 0x0010
 HFCF_DEFAULTCLASS       = 0x1000
 
-# ICMP types
+# ICMP types (from /usr/include/netinet/ip_icmp.h)
 ICMP_ECHO                        = 8
 ICMP_ECHOREPLY                   = 0
 ICMP_UNREACH                     = 3
@@ -341,7 +344,7 @@ ICMP_MOBILE_REGREPLY             = 36
 ICMP_SKIP                        = 39
 ICMP_PHOTURIS                    = 40
 
-# ICMP codes
+# ICMP codes (from /usr/include/netinet/ip_icmp.h)
 ICMP_UNREACH_NET                 = 0
 ICMP_UNREACH_HOST                = 1
 ICMP_UNREACH_PROTOCOL            = 2
@@ -373,7 +376,7 @@ ICMP_PHOTURIS_UNKNOWN_INDEX      = 1
 ICMP_PHOTURIS_AUTH_FAILED        = 2
 ICMP_PHOTURIS_DECRYPT_FAILED     = 3
 
-# ICMP6 types
+# ICMP6 types (from /usr/include/netinet/icmp6.h)
 ICMP6_DST_UNREACH                = 1
 ICMP6_PACKET_TOO_BIG             = 2
 ICMP6_TIME_EXCEEDED              = 3
@@ -401,7 +404,7 @@ ICMP6_NI_REPLY                   = 140
 MLD_MTRACE_RESP                  = 200
 MLD_MTRACE                       = 201
 
-# ICMP6 codes
+# ICMP6 codes (from /usr/include/netinet/icmp6.h)
 ICMP6_DST_UNREACH_NOROUTE        = 0
 ICMP6_DST_UNREACH_ADMIN          = 1
 ICMP6_DST_UNREACH_NOTNEIGHBOR    = 2

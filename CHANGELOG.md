@@ -1,3 +1,19 @@
+Oct 21, 2012 -- version 0.0.9
+-----------------------------
+- Updated to OpenBSD 5.2
+- Printing a `PFIface` object now returns a string similar to the output of the
+  command `pfctl -sI -vv`
+- Fixed a bug in `PFRule` that prevented `rdr-to` rules from being correctly
+  converted to strings
+- Fixed a couple of bugs in the string representation of `PFState` objects
+- Added the `set_optimization()` and `get_optiomization()` methods to
+  `PacketFilter` (thanks Colin!)
+- Fixed a bug in `PFAddr._from_str()` which didn't allow interface groups as
+  addresses (thanks Colin!)
+- Added the `pf.lib` module containing some higher-level classes that make
+  loading PF rules much easier
+
+
 Jun 28, 2012 -- version 0.0.8
 -----------------------------
 - Updated to OpenBSD 5.1
@@ -13,7 +29,8 @@ Jun 28, 2012 -- version 0.0.8
   some port operands
 - Fixed bug in PFUtils.rate2str which prevented correct handling of floating
   point numbers
-- Test suite completely re-written and run with "python setup.py test"
+- Test suite completely re-written and run with `python setup.py test`
+
 
 Nov 22, 2012 -- version 0.0.7
 -----------------------------

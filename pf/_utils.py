@@ -10,66 +10,125 @@ from pf.constants import *
 from pf._struct import ifreq, if_data
 
 
-# Dictionaries for mapping strings to constants ################################
+# Dictionaries for mapping strings to constants
 # Debug levels
-dbg_levels  = {"emerg":  LOG_EMERG,
-               "alert":  LOG_ALERT,
-               "crit":   LOG_CRIT,
-               "err":    LOG_ERR,
-               "warn":   LOG_WARNING,
-               "notice": LOG_NOTICE,
-               "info":   LOG_INFO,
-               "debug":  LOG_DEBUG}
+dbg_levels = {
+    "emerg":  LOG_EMERG,
+    "alert":  LOG_ALERT,
+    "crit":   LOG_CRIT,
+    "err":    LOG_ERR,
+    "warn":   LOG_WARNING,
+    "notice": LOG_NOTICE,
+    "info":   LOG_INFO,
+    "debug":  LOG_DEBUG
+}
 
 # Memory limits
-pf_limits   = {"states":        PF_LIMIT_STATES,
-               "src-nodes":     PF_LIMIT_SRC_NODES,
-               "frags":         PF_LIMIT_FRAGS,
-               "tables":        PF_LIMIT_TABLES,
-               "table-entries": PF_LIMIT_TABLE_ENTRIES}
+pf_limits = {
+    "states":        PF_LIMIT_STATES,
+    "src-nodes":     PF_LIMIT_SRC_NODES,
+    "frags":         PF_LIMIT_FRAGS,
+    "tables":        PF_LIMIT_TABLES,
+    "table-entries": PF_LIMIT_TABLE_ENTRIES
+}
 
 # Ports, UIDs and GIDs operators
-pf_ops      = {"":   PF_OP_NONE,
-               "><": PF_OP_IRG,
-               "<>": PF_OP_XRG,
-               "=":  PF_OP_EQ,
-               "!=": PF_OP_NE,
-               "<":  PF_OP_LT,
-               "<=": PF_OP_LE,
-               ">":  PF_OP_GT,
-               ">=": PF_OP_GE,
-               ":":  PF_OP_RRG}
+pf_ops = {
+    "":   PF_OP_NONE,
+    "><": PF_OP_IRG,
+    "<>": PF_OP_XRG,
+    "=":  PF_OP_EQ,
+    "!=": PF_OP_NE,
+    "<":  PF_OP_LT,
+    "<=": PF_OP_LE,
+    ">":  PF_OP_GT,
+    ">=": PF_OP_GE,
+    ":":  PF_OP_RRG
+}
 
 # Interface modifiers
-pf_if_mods  = {"network":   PFI_AFLAG_NETWORK,
-               "broadcast": PFI_AFLAG_BROADCAST,
-               "peer":      PFI_AFLAG_PEER,
-               "0":         PFI_AFLAG_NOALIAS}
+pf_if_mods = {
+    "network":   PFI_AFLAG_NETWORK,
+    "broadcast": PFI_AFLAG_BROADCAST,
+    "peer":      PFI_AFLAG_PEER,
+    "0":         PFI_AFLAG_NOALIAS
+}
 
 # Global timeouts
-pf_timeouts = {"tcp.first":       PFTM_TCP_FIRST_PACKET,
-               "tcp.opening":     PFTM_TCP_OPENING,
-               "tcp.established": PFTM_TCP_ESTABLISHED,
-               "tcp.closing":     PFTM_TCP_CLOSING,
-               "tcp.finwait":     PFTM_TCP_FIN_WAIT,
-               "tcp.closed":      PFTM_TCP_CLOSED,
-               "tcp.tsdiff":      PFTM_TS_DIFF,
-               "udp.first":       PFTM_UDP_FIRST_PACKET,
-               "udp.single":      PFTM_UDP_SINGLE,
-               "udp.multiple":    PFTM_UDP_MULTIPLE,
-               "icmp.first":      PFTM_ICMP_FIRST_PACKET,
-               "icmp.error":      PFTM_ICMP_ERROR_REPLY,
-               "other.first":     PFTM_OTHER_FIRST_PACKET,
-               "other.single":    PFTM_OTHER_SINGLE,
-               "other.multiple":  PFTM_OTHER_MULTIPLE,
-               "frag":            PFTM_FRAG,
-               "interval":        PFTM_INTERVAL,
-               "adaptive.start":  PFTM_ADAPTIVE_START,
-               "adaptive.end":    PFTM_ADAPTIVE_END,
-               "src.track":       PFTM_SRC_NODE}
+pf_timeouts = {
+    "tcp.first":       PFTM_TCP_FIRST_PACKET,
+    "tcp.opening":     PFTM_TCP_OPENING,
+    "tcp.established": PFTM_TCP_ESTABLISHED,
+    "tcp.closing":     PFTM_TCP_CLOSING,
+    "tcp.finwait":     PFTM_TCP_FIN_WAIT,
+    "tcp.closed":      PFTM_TCP_CLOSED,
+    "tcp.tsdiff":      PFTM_TS_DIFF,
+    "udp.first":       PFTM_UDP_FIRST_PACKET,
+    "udp.single":      PFTM_UDP_SINGLE,
+    "udp.multiple":    PFTM_UDP_MULTIPLE,
+    "icmp.first":      PFTM_ICMP_FIRST_PACKET,
+    "icmp.error":      PFTM_ICMP_ERROR_REPLY,
+    "other.first":     PFTM_OTHER_FIRST_PACKET,
+    "other.single":    PFTM_OTHER_SINGLE,
+    "other.multiple":  PFTM_OTHER_MULTIPLE,
+    "frag":            PFTM_FRAG,
+    "interval":        PFTM_INTERVAL,
+    "adaptive.start":  PFTM_ADAPTIVE_START,
+    "adaptive.end":    PFTM_ADAPTIVE_END,
+    "src.track":       PFTM_SRC_NODE
+}
+
+# PF Optimization Hints
+pf_hint_normal = {
+    "tcp.first": 2 * 60,
+    "tcp.opening": 30,
+    "tcp.established": 24 * 60 * 60,
+    "tcp.closing": 15 * 60,
+    "tcp.finwait": 45,
+    "tcp.closed": 90,
+    "tcp.tsdiff": 30
+}
+
+pf_hint_sattelite = {
+    "tcp.first": 3 * 60,
+    "tcp.opening": 30 + 5,
+    "tcp.established": 24 * 60 * 60,
+    "tcp.closing": 15 * 60 + 5,
+    "tcp.finwait": 45 + 5,
+    "tcp.closed": 90 + 5,
+    "tcp.tsdiff": 60
+}
+
+pf_hint_conservative = {
+    "tcp.first": 60 * 60,
+    "tcp.opening": 15 * 60,
+    "tcp.established": 5 * 24 * 60 * 60,
+    "tcp.closing": 60 * 60,
+    "tcp.finwait": 10 * 60,
+    "tcp.closed": 3 * 90,
+    "tcp.tsdiff": 60
+}
+
+pf_hint_aggressive = {
+    "tcp.first": 30,
+    "tcp.opening": 5,
+    "tcp.established": 5 * 60 * 60,
+    "tcp.closing": 60,
+    "tcp.finwait": 30,
+    "tcp.closed": 30,
+    "tcp.tsdiff": 10
+}
+
+pf_hints = {
+    "normal": pf_hint_normal,
+    "sattelite": pf_hint_sattelite,
+    "high-latency": pf_hint_sattelite,
+    "conservative": pf_hint_conservative,
+    "aggressive": pf_hint_aggressive
+}
 
 
-# Dictionaries for mapping constants to strings ################################
+# Dictionaries for mapping constants to strings
 # TCP states
 tcpstates = {TCPS_CLOSED:       "CLOSED",
              TCPS_LISTEN:       "LISTEN",
@@ -240,7 +299,7 @@ pf_hints = {
     "aggressive": pf_hint_aggressive
 }
 
-# Functions ####################################################################
+# Helper functions
 def getprotobynumber(number, file="/etc/protocols"):
     """Map a protocol number to a name.
 
@@ -297,7 +356,7 @@ def nmtoc(netmask, af):
 
 
 def rate2str(bw):
-    """ """
+    """Return the string representation of the network speed rate."""
     units = [" ", "K", "M", "G"]
     for i in range(len(units)):
         if bw >= 1000:
@@ -313,7 +372,8 @@ def rate2str(bw):
 
 def getifmtu(ifname):
     """Quick hack to get MTU and speed for a specified interface."""
-    SIOCGIFMTU = 0xc020697e     # _IOWR('i', 126, ifreq)
+    from pf.filter import _IOWR
+    SIOCGIFMTU = _IOWR('i', 126, ifreq)
     s = socket(AF_INET, SOCK_DGRAM)
     ifrdat = if_data()
     ifr = ifreq(ifr_name=ifname, ifru_data=addressof(ifrdat))

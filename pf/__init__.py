@@ -33,9 +33,9 @@ import os
 
 
 __author__  = "Daniele Mazzocchio <danix@kernel-panic.it>"
-__version__ = "0.0.8"
+__version__ = "0.0.9"
 
-__OBSD_VERSION__ = "5.1"
+__OBSD_VERSION__ = "5.2"
 
 
 class PFError(Exception):
@@ -50,6 +50,8 @@ from pf.table import *
 from pf.rule import *
 from pf.altq import *
 from pf.filter import *
+
+import pf.lib
 
 
 __all__ = ['PFError',

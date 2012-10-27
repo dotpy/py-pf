@@ -1,9 +1,9 @@
 """Classes to represent Packet Filter Tables."""
 
-from socket import *
-from ctypes import *
 import re
 import time
+from socket import *
+from ctypes import *
 
 from pf.constants import *
 from pf._struct import *
@@ -29,7 +29,7 @@ class PFTableAddr(PFObject):
         super(PFTableAddr, self).__init__(addr, **kw)
 
     def _from_struct(self, a):
-        """Initialize class attributes from a pfr_addr structure"""
+        """Initialize class attributes from a pfr_addr structure."""
         l = {AF_INET: 4, AF_INET6: 16}[a.pfra_af]
 
         self.af     = a.pfra_af
@@ -37,8 +37,10 @@ class PFTableAddr(PFObject):
         self.mask   = ctonm(a.pfra_net, self.af)
         self.neg    = bool(a.pfra_not)
         self.fback  = a.pfra_fback
-        self.ifname = a.pfra_ifname    # ?
-        self.type   = a.pfra_type      # ?
+        self.ifname = a.pfra_ifname
+        self.type   = a.pfra_type
+        self.states = a.pfra_states
+        self.weight = a.pfra_weight
 
     def _from_string(self, a):
         """Initalize a new instance from a string."""
@@ -66,6 +68,8 @@ class PFTableAddr(PFObject):
         self.fback = 0
         self.ifname = ""               # ?
         self.type   = PFRKE_PLAIN      # ?
+        self.states = 0
+        self.weight = 0
 
     def _to_struct(self):
         """Convert this instance to a pfr_addr structure."""
@@ -85,13 +89,7 @@ class PFTableAddr(PFObject):
 
     def _to_string(self):
         """Return the string representation of the address."""
-        s = ""
-
-        if self.neg:
-            s += "! "
-
-        s += self.addr
-
+        s = ("! {!s}" if self.neg else "{!s}").format(self.addr)
         bits = nmtoc(self.mask, self.af)
         if not ((self.af == AF_INET and bits == 32) or (bits == 128)):
             s += "/{}".format(bits)
@@ -160,16 +158,16 @@ class PFTable(PFObject):
 
 
 class PFTStats(PFObject):
-    """ """
+    """Class containing statistics for a PF table."""
 
     _struct_type = pfr_tstats
 
     def __init__(self, tstats):
-        """ """
+        """Initialize class attributes."""
         super(PFTStats, self).__init__(tstats)
 
     def _from_struct(self, s):
-        """ """
+        """Initialize class attributes from a pfr_tstats structure."""
         self.table   = PFTable(s.pfrts_t)
         self.packets = {"in":  tuple(s.pfrts_packets[PFR_DIR_IN]),
                         "out": tuple(s.pfrts_packets[PFR_DIR_OUT])}
@@ -183,7 +181,7 @@ class PFTStats(PFObject):
                         "anchors": s.pfrts_refcnt[PFR_REFCNT_ANCHOR]}
 
     def _to_string(self):
-        """ """
+        """Return the string representation of the table statistics."""
         s  = "{.table}\n".format(self)
         s += "\tAddresses:   {.cnt:d}\n".format(self)
         s += "\tCleared:     {}\n".format(time.ctime(self.cleared))

@@ -23,13 +23,12 @@ __all__ = ['PFUid',
            'PFRuleset']
 
 
-# Helper functions #############################################################
+# Helper functions
 def azero(seq):
     """Return True if all numbers in 'seq' are 0s."""
     return not filter(None, seq)
 
 
-# PFUid and PFGid classes ######################################################
 class PFOp(PFObject):
     """Class representing a generic comparison operation."""
 
@@ -178,7 +177,6 @@ class PFGid(PFOp):
         return grp.getgrnam(s).gr_gid
 
 
-# PFPort class #################################################################
 class PFPort(PFOp):
     """Class representing a TCP/UDP port."""
 
@@ -189,10 +187,11 @@ class PFPort(PFOp):
 
     def _num_to_str(self, n):
         """Convert a numeric port to a service name."""
-        try:
-            return getservbyport(n, getprotobynumber(self.proto))
-        except (TypeError, error):
-            return n
+        return n
+        #try:
+        #    return getservbyport(n, getprotobynumber(self.proto))
+        #except (TypeError, error):
+        #    return n
 
     def _str_to_num(self, s):
         """Convert a service name to a numeric port."""
@@ -204,7 +203,6 @@ class PFPort(PFOp):
                 self.proto == p.proto)
 
 
-# PFAddr class #################################################################
 class PFAddr(PFObject):
     """Class representing an address."""
 
@@ -262,7 +260,7 @@ class PFAddr(PFObject):
                   "(?P<any>any)|"                                       + \
                   "(?P<tbl><(?P<tblname>\w+)>)|"                        + \
                   "(?P<rt>route\s+(?P<rtlbl>\w+))|"                     + \
-                  "(?P<if>\((?P<ifname>[a-z]+[0-9]+)"                   + \
+                  "(?P<if>\((?P<ifname>[a-z]+[0-9]*)"                   + \
                            "(?P<mod>(:network|:broadcast|:peer|:0)*)\)" + \
                            "(?:/(?P<ifmask>\d+))?)|"                    + \
                   "(?P<ipv4rg>(?P<ipv4_1>[0-9.]+)\s*-\s*"               + \
@@ -428,7 +426,6 @@ class PFAddr(PFObject):
         return not self.__eq__(a)
 
 
-# PFRuleAddr class #############################################################
 class PFRuleAddr(PFObject):
     """Class representing an address/port pair."""
 
@@ -478,7 +475,6 @@ class PFRuleAddr(PFObject):
         return not self.__eq__(a)
 
 
-# PFPool class #################################################################
 class PFPool(PFObject):
     """Class representing an address pool."""
 
@@ -576,7 +572,6 @@ class PFPool(PFObject):
         return s
 
 
-# PFRule class #################################################################
 class PFRule(PFObject):
     """Class representing a Packet Filter rule."""
 
@@ -586,7 +581,6 @@ class PFRule(PFObject):
         """Check arguments and initialize instance attributes."""
         if rule is None:
             rule = pf_rule(rtableid=-1, onrdomain=-1)
-            rule.prio[0] = PF_PRIO_NOTSET
         super(PFRule, self).__init__(rule, **kw)
 
     def _from_struct(self, r):
@@ -671,7 +665,7 @@ class PFRule(PFObject):
         self.anchor_relative   = r.anchor_relative
         self.anchor_wildcard   = r.anchor_wildcard
         self.flush             = r.flush
-        self.prio              = tuple(r.prio)
+        self.set_prio          = tuple(r.set_prio)
         self.naf               = r.naf
         self.divert            = (None, None)
         self.divert_packet     = (None, None)
@@ -761,7 +755,7 @@ class PFRule(PFObject):
         r.anchor_relative   = self.anchor_relative
         r.anchor_wildcard   = self.anchor_wildcard
         r.flush             = self.flush
-        r.prio[:]           = self.prio
+        r.set_prio[:]       = self.set_prio
         r.naf               = self.naf
         if self.divert[0]:
             r.divert.addr   = self.divert[0]._to_struct().v.a.addr
@@ -893,6 +887,17 @@ class PFRule(PFObject):
         if self.tos:
             s += " tos {.tos:#04x}".format(self)
 
+        if self.scrub_flags & PFSTATE_SETMASK:
+            opts = []
+            if self.scrub_flags[0] != PFSTATE_SETPRIO:
+                if self.set_prio[0] == self.set_prio[1]:
+                    opts.append("prio {}".format(self.set_prio[0]))
+                else:
+                    opts.append("prio ({}, {})".format(*self.set_prio))
+            if self.scrub_flags & PFSTATE_SETTOS:
+                opts.append("tos {.set_tos:#04x}".format(self))
+            s += " set ( {} )".format(", ".join(opts))
+
         has_opts = False
         if (self.max_states or self.max_src_nodes or self.max_src_states)  or \
            self.rule_flag & (PFRULE_NOSYNC|PFRULE_SRCTRACK|PFRULE_IFBOUND) or \
@@ -963,8 +968,6 @@ class PFRule(PFObject):
                 opts.append("random-id")
             if self.min_ttl:
                 opts.append("min-ttl {.min_ttl}".format(self.min_ttl))
-            if self.scrub_flags & PFSTATE_SETTOS:
-                opts.append("set-tos {.set_tos:#04x}".format(self))
             if self.scrub_flags & PFSTATE_SCRUB_TCP:
                 opts.append("reassemble tcp")
             if self.max_mss:
@@ -1021,16 +1024,9 @@ class PFRule(PFObject):
         elif self.rt == PF_DUPTO:
             s += " dup-to {.route}".format(self)
 
-        if self.prio[0] != PF_PRIO_NOTSET:
-            if self.prio[0] == self.prio[1]:
-                s += " prio {}".format(self.prio[0])
-            else:
-                s += " prio ({}, {})".format(*self.prio)
-
         return s
 
 
-# PFRuleset class ##############################################################
 class PFRuleset(PFRule):
     """Class representing a Packet Filter ruleset or anchor."""
 

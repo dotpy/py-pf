@@ -30,7 +30,7 @@ class PFStatus(PFObject):
         """Initialize class attributes from a pf_status structure."""
         self.ifname    = s.ifname
         self.running   = bool(s.running)
-        #stateid
+        self.stateid   = s.stateid
         self.since     = s.since
         self.states    = s.states
         self.src_nodes = s.src_nodes
@@ -174,9 +174,32 @@ class PFIface(PFObject):
         self.flags     = i.pfik_flags
         self.flags_new = i.pfik_flags_new
         self.states    = i.pfik_states
+        self.cleared   = i.pfik_tzero
         self.rules     = i.pfik_rules
         self.routes    = i.pfik_routes
 
     def _to_string(self):
         """Return a string containing the description of the interface."""
-        return self.name
+        if (self.flags & PFI_IFLAG_SKIP):
+            s = "{.name} (skip)\n".format(self)
+        else:
+            s = "{.name}\n".format(self)
+        s += "\tCleared:     {}\n".format(time.ctime(self.cleared))
+        s += "\tReferences:  [ States:  {.states:<18d}".format(self)
+        s+= " Rules: {.rules:<18d} ]\n".format(self)
+
+        pfik_ops = ("Pass:", "Block:")
+        for o, p, b in zip(pfik_ops, self.packets["in"], self.bytes["in"]):
+            l = "\tIn4/{:<6s}   [ Packets: {:<18d} Bytes: {:<18d} ]\n"
+            s += l.format(o, p[0], b[0])
+        for o, p, b in zip(pfik_ops, self.packets["out"], self.bytes["out"]):
+            l = "\tOut4/{:<6s}  [ Packets: {:<18d} Bytes: {:<18d} ]\n"
+            s += l.format(o, p[0], b[0])
+        for o, p, b in zip(pfik_ops, self.packets["in"], self.bytes["in"]):
+            l = "\tIn6/{:<6s}   [ Packets: {:<18d} Bytes: {:<18d} ]\n"
+            s += l.format(o, p[1], b[1])
+        for o, p, b in zip(pfik_ops, self.packets["out"], self.bytes["out"]):
+            l = "\tOut6/{:<6s}  [ Packets: {:<18d} Bytes: {:<18d} ]\n"
+            s += l.format(o, p[1], b[1])
+
+        return s

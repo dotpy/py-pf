@@ -1,4 +1,4 @@
-"""Classes to represent Packet Filter's queueing schedulers."""
+"""Classes to represent Packet Filter's queueing schedulers and statistics."""
 
 from pf.constants import *
 from pf._struct import *
@@ -15,9 +15,8 @@ __all__ = ['PFAltqCBQ',
            'HFSCStats']
 
 
-# PFAltq class #################################################################
 class PFAltq(PFObject):
-    """ """
+    """Parent class for the specific queue classes."""
 
     _struct_type = pf_altq
 
@@ -59,7 +58,7 @@ class PFAltq(PFObject):
                     self.tbrsize = mtu * 8
 
     def _from_struct(self, q):
-        """ """
+        """Initialize class attributes from a pf_altq structure."""
         self.ifname      = q.ifname
         #self.altq_disc   = q.altq_disc
         #self.entries     = q.entries
@@ -79,7 +78,7 @@ class PFAltq(PFObject):
         self._opts_from_struct(q)
 
     def _to_struct(self):
-        """ """
+        """Convert this instance to a pf_altq structure."""
         q = pf_altq()
 
         q.ifname      = self.ifname
@@ -102,18 +101,16 @@ class PFAltq(PFObject):
         return q
 
     def _opts_from_struct(self, q):
-        """ """
         raise NotImplementedError()
 
     def _opts_to_struct(self, q):
-        """ """
         raise NotImplementedError()
 
     def _str_opts(self):
         raise NotImplementedError()
 
     def _str_altq(self):
-        """ """
+        """Convert a root ALTQ discipline to a string."""
         altqs = {ALTQT_CBQ: "cbq", ALTQT_PRIQ: "priq", ALTQT_HFSC: "hfsc"}
 
         s  = "altq on {.ifname} ".format(self)
@@ -130,7 +127,7 @@ class PFAltq(PFObject):
         return s
 
     def _str_queue(self):
-        """ """
+        """Convert a child ALTQ discipline to a string."""
         altqs = {ALTQT_CBQ: "cbq", ALTQT_PRIQ: "priq", ALTQT_HFSC: "hfsc"}
         opts = self._str_opts()
 
@@ -151,16 +148,15 @@ class PFAltq(PFObject):
         return s
 
     def _to_string(self):
-        """ """
+        """Return the string representation of the queue."""
         return (self._str_queue() if self.qname else self._str_altq())
 
 
-# Queue-specific classes #######################################################
 class PFAltqCBQ(PFAltq):
-    """ """
+    """Class representing a Class Based Queueing queue."""
 
     def __init__(self, altq=None, **kw):
-        """ """
+        """Check argument and initialize class attributes."""
         super(PFAltqCBQ, self).__init__(altq, scheduler=ALTQT_CBQ, **kw)
         if (altq is None or isinstance(altq, basestring)) and self.qname:
             self._set_opts()
@@ -168,7 +164,7 @@ class PFAltqCBQ(PFAltq):
             self.optflags |= (CBQCLF_ROOTCLASS | CBQCLF_WRR)
 
     def _opts_from_struct(self, q):
-        """ """
+        """Initialize options from a cbq_opts structure."""
         self.opts = {"minburst":    q.pq_u.cbq_opts.minburst,
                      "maxburst":    q.pq_u.cbq_opts.maxburst,
                      "pktsize":     q.pq_u.cbq_opts.pktsize,
@@ -181,7 +177,7 @@ class PFAltqCBQ(PFAltq):
         self.optflags = q.pq_u.cbq_opts.flags
 
     def _opts_to_struct(self, q):
-        """ """
+        """Insert options into the cbq_opts structure."""
         q.pq_u.cbq_opts.minburst    = self.opts["minburst"]
         q.pq_u.cbq_opts.maxburst    = self.opts["maxburst"]
         q.pq_u.cbq_opts.pktsize     = self.opts["pktsize"]
@@ -240,24 +236,16 @@ class PFAltqCBQ(PFAltq):
         self.opts["offtime"]     = int(abs(offtime / 1000.0))
 
     def _str_opts(self):
-        """ """
+        """Return the string representation of class-specific options."""
         opts = []
         if self.optflags & CBQCLF_RED:
             opts.append("red")
         if self.optflags & CBQCLF_ECN:
             opts.append("ecn")
-        if self.optflags & CBQCLF_RIO:
-            opts.append("rio")
-        if self.optflags & CBQCLF_CLEARDSCP:
-            opts.append("cleardscp")
-        if self.optflags & CBQCLF_FLOWVALVE:
-            opts.append("flowvalve")
         if self.optflags & CBQCLF_BORROW:
             opts.append("borrow")
         if self.optflags & CBQCLF_WRR:
             opts.append("wrr")
-        if self.optflags & CBQCLF_EFFICIENT:
-            opts.append("efficient")
         if self.optflags & CBQCLF_ROOTCLASS:
             opts.append("root")
         if self.optflags & CBQCLF_DEFCLASS:
@@ -267,14 +255,14 @@ class PFAltqCBQ(PFAltq):
 
 
 class PFAltqHFSC(PFAltq):
-    """ """
+    """Class representing a Hierarchical Fair Service Curve queue."""
 
     def __init__(self, altq=None, **kw):
-        """ """
+        """Check argument and initialize class attributes."""
         super(PFAltqHFSC, self).__init__(altq, scheduler=ALTQT_HFSC, **kw)
 
     def _opts_from_struct(self, q):
-        """ """
+        """Initialize options from a hfsc_opts structure."""
         self.rtsc = (q.pq_u.hfsc_opts.rtsc_m1, q.pq_u.hfsc_opts.rtsc_d,
                      q.pq_u.hfsc_opts.rtsc_m2)
         self.lssc = (q.pq_u.hfsc_opts.lssc_m1, q.pq_u.hfsc_opts.lssc_d,
@@ -284,7 +272,7 @@ class PFAltqHFSC(PFAltq):
         self.optflags = q.pq_u.hfsc_opts.flags
 
     def _opts_to_struct(self, q):
-        """ """
+        """Insert options into the hfsc_opts structure."""
         q.pq_u.hfsc_opts.rtsc_m1 = self.rtsc[0]
         q.pq_u.hfsc_opts.rtsc_d  = self.rtsc[1]
         q.pq_u.hfsc_opts.rtsc_m2 = self.rtsc[2]
@@ -297,7 +285,7 @@ class PFAltqHFSC(PFAltq):
         q.pq_u.hfsc_opts.flags   = self.optflags
 
     def _str_sc(self, m1, d, m2):
-        """ """
+        """Return the string representation of the service curve."""
         s = ""
         if m2:
             s = " {}".format(rate2str(m2))
@@ -306,7 +294,7 @@ class PFAltqHFSC(PFAltq):
         return s
 
     def _str_opts(self):
-        """ """
+        """Return the string representation of class-specific options."""
         opts = []
         if (self.optflags or self.rtsc[2] or self.ulsc[2] or
             (self.lssc[2] and (self.lssc[2] != self.bandwidth or
@@ -315,10 +303,6 @@ class PFAltqHFSC(PFAltq):
                 opts.append("red")
             if self.optflags & HFCF_ECN:
                 opts.append("ecn")
-            if self.optflags & HFCF_RIO:
-                opts.append("rio")
-            if self.optflags & HFCF_CLEARDSCP:
-                opts.append("cleardscp")
             if self.optflags & HFCF_DEFAULTCLASS:
                 opts.append("default")
             if self.rtsc[2]:
@@ -333,50 +317,45 @@ class PFAltqHFSC(PFAltq):
 
 
 class PFAltqPriQ(PFAltq):
-    """ """
+    """Class representing a Priority Queueing queue."""
 
     def __init__(self, altq=None, **kw):
-        """ """
+        """Check argument and initialize class attributes."""
         super(PFAltqPriQ, self).__init__(altq, scheduler=ALTQT_PRIQ, **kw)
 
     def _opts_from_struct(self, q):
-        """ """
+        """Initialize options from a priq_opts structure."""
         self.optflags = q.pq_u.priq_opts.flags
 
     def _opts_to_struct(self, q):
-        """ """
+        """Insert options into the priq_opts structure."""
         q.pq_u.priq_opts.flags = self.optflags
 
     def _str_opts(self):
-        """ """
+        """Return the string representation of class-specific options."""
         opts = []
         if self.optflags & PRCF_RED:
             opts.append("red")
         if self.optflags & PRCF_ECN:
             opts.append("ecn")
-        if self.optflags & PRCF_RIO:
-            opts.append("rio")
-        if self.optflags & PRCF_CLEARDSCP:
-            opts.append("cleardscp")
         if self.optflags & PRCF_DEFAULTCLASS:
             opts.append("default")
 
         return ("( {} ) ".format(" ".join(opts)) if opts else "")
 
 
-# Queue statistics classes #####################################################
 class CBQStats(PFObject):
-    """ """
+    """Class representing statistics for a CBQ queue."""
 
     _struct_type = class_stats_t
 
     def __init__(self, queue, stats):
-        """ """
+        """Check argument and initialize class attributes."""
         super(CBQStats, self).__init__(stats)
         self.queue = queue
 
     def _from_struct(self, s):
-        """ """
+        """Initialize attributes from a class_stats_t structure."""
         self.packets = (s.xmit_cnt.packets, s.drop_cnt.packets)
         self.bytes   = (s.xmit_cnt.bytes, s.drop_cnt.bytes)
         self.length  = s.qcnt
@@ -385,7 +364,7 @@ class CBQStats(PFObject):
         self.delays  = s.delays
 
     def _to_string(self):
-        """ """
+        """Return the string representation of the statistics."""
         s  = "{0.queue}\n"
         s += "  [ pkts: {0.packets[0]:10}  bytes: {0.bytes[0]:10}"
         s += "  dropped pkts: {0.packets[1]:6} bytes: {0.bytes[1]:6} ]\n"
@@ -395,24 +374,24 @@ class CBQStats(PFObject):
 
 
 class PriQStats(PFObject):
-    """ """
+    """Class representing statistics for a PRIQ queue."""
 
     _struct_type = priq_classstats
 
     def __init__(self, queue, stats):
-        """ """
+        """Check argument and initialize class attributes."""
         super(PriQStats, self).__init__(stats)
         self.queue = queue
 
     def _from_struct(self, s):
-        """ """
+        """Initialize attributes from a priq_classstats structure."""
         self.packets = (s.xmitcnt.packets, s.dropcnt.packets)
         self.bytes   = (s.xmitcnt.bytes, s.dropcnt.bytes)
         self.length  = s.qlength
         self.limit   = s.qlimit
 
     def _to_string(self):
-        """ """
+        """Return the string representation of the statistics."""
         s  = "{0.queue}\n"
         s += "  [ pkts: {0.packets[0]:10}  bytes: {0.bytes[0]:10}"
         s += "  dropped pkts: {0.packets[1]:6} bytes: {0.bytes[1]:6} ]\n"
@@ -421,24 +400,24 @@ class PriQStats(PFObject):
 
 
 class HFSCStats(PFObject):
-    """ """
+    """Class representing statistics for a HFSC queue."""
 
     _struct_type = hfsc_classstats
 
     def __init__(self, queue, stats):
-        """ """
+        """Check argument and initialize class attributes."""
         super(HFSCStats, self).__init__(stats)
         self.queue = queue
 
     def _from_struct(self, s):
-        """ """
+        """Initialize attributes from a hfsc_classstats structure."""
         self.packets = (s.xmit_cnt.packets, s.drop_cnt.packets)
         self.bytes   = (s.xmit_cnt.bytes, s.drop_cnt.bytes)
         self.length  = s.qlength
         self.limit   = s.qlimit
 
     def _to_string(self):
-        """ """
+        """Return the string representation of the statistics."""
         s  = "{0.queue}\n"
         s += "  [ pkts: {0.packets[0]:10}  bytes: {0.bytes[0]:10}"
         s += "  dropped pkts: {0.packets[1]:6} bytes: {0.bytes[1]:6} ]\n"
