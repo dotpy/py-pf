@@ -300,21 +300,13 @@ class PacketFilter(object):
 
     def set_optimization(self, opt="normal"):
         """Set the optimization profile for state handling like pfctl."""
-<<<<<<< HEAD
-        for name, val in pf_hints[opt].items():
-=======
         for name, val in pf_hints[opt].iteritems():
->>>>>>> Updated to OpenBSD 5.2
             self.set_timeout(name, val)
 
     def get_optimization(self):
         """ """
         tm = self.get_timeout()
-<<<<<<< HEAD
-        for name, val in pf_hints.items():
-=======
         for name, val in pf_hints.iteritems():
->>>>>>> Updated to OpenBSD 5.2
             if val["tcp.first"] == tm["tcp.first"]:
                 return name
 
