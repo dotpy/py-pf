@@ -581,7 +581,8 @@ class PacketFilter(object):
         """Return a PFRuleset object containing the active ruleset.
         
         'path' is the path of the anchor to retrieve rules from. If 'clear' is
-        True, per-rule statistics will be cleared.
+        True, per-rule statistics will be cleared. Keyword arguments can be
+        passed for returning only matching rules.
         """
         rs = PFRuleset(os.path.basename(path))
 
