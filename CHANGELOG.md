@@ -6,6 +6,9 @@ Oct 21, 2012 -- version 0.0.9
 - Fixed a bug in `PFRule` that prevented `rdr-to` rules from being correctly
   converted to strings
 - Fixed a couple of bugs in the string representation of `PFState` objects
+- Added filtering capabilities to `PacketFilter.get_ruleset()`: now it's
+  possible to retrieve only rules with specific attribute values (e.g.
+  `filter.get_ruleset(ifname="em0")`)
 - Added the `set_optimization()` and `get_optiomization()` methods to
   `PacketFilter` (thanks Colin!)
 - Fixed a bug in `PFAddr._from_str()` which didn't allow interface groups as
