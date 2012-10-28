@@ -586,11 +586,13 @@ class PacketFilter(object):
         rs = PFRuleset(os.path.basename(path))
 
         with open(self.dev, 'r') as d:
-            rs.append(*self._get_rules(path, d, clear))
-
-        if not kw:
-            return rs
-        
+            for rule in self._get_rules(path, d, clear):
+                if isinstance(rule, PFRule):
+                    if not all((getattr(rule, attr) == value)
+                               for (attr, value) in kw.iteritems()):
+                        continue
+                rs.append(rule)
+        return rs
 
     def _inadefine(self, table, dev, path, ticket):
         """Define a table in the inactive ruleset."""
