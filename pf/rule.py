@@ -953,7 +953,8 @@ class PFRule(PFObject):
                 opts.append("pflow")
             for i, t in enumerate(self.timeout):
                 if t:
-                    opts.append("{} {}".format(pf_timeouts[i], t))
+                    tm = [k for (k, v) in pf_timeouts.iteritems() if v == i][0]
+                    opts.append("{} {}".format(tm, t))
 
             s += " ({})".format(", ".join(opts))
 
