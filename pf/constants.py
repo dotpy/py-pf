@@ -70,9 +70,6 @@ PF_ROUTETO              = 1
 PF_DUPTO                = 2
 PF_REPLYTO              = 3
 
-# Priority options (from /usr/src/sys/net/pfvar.h)
-PF_PRIO_NOTSET		    = 0xff
-
 # State keys (from /usr/include/net/pfvar.h)
 PF_SK_WIRE              = 0
 PF_SK_STACK             = 1
@@ -157,7 +154,7 @@ LOG_INFO                = 6
 LOG_DEBUG               = 7
 
 # The 'unlimited' value for limits on the memory pools
-UINT_MAX                = maxint * 2 + 1
+UINT_MAX                = 0xffffffff
 
 # Limits (from /usr/include/net/pfvar.h)
 PF_LIMIT_STATES         = 0

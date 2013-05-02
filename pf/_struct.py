@@ -206,7 +206,7 @@ class pfsync_state(Structure):          # From /usr/include/net/pfvar.h
 class pfioc_states(BufferStructure):    # From /usr/include/net/pfvar.h
     class _ps_u(Union):
         _fields_ = [("ps_buf",        c_void_p),      # caddr_t
-                    ("ps_states",     c_void_p)]      # (struct pfsync_state *)
+                    ("ps_states",     c_void_p)]      # struct pfsync_state *
 
     _fields_ = [("ps_len",            c_int),
                 ("ps_u",              _ps_u)]
@@ -247,7 +247,7 @@ class pf_pool(Structure):               # From /usr/include/net/pfvar.h
                 ("key",               pf_poolhashkey),
                 ("counter",           pf_addr),
                 ("ifname",            c_char * IFNAMSIZ),
-                ("kif",               c_void_p),      # (struct pfi_kif *)
+                ("kif",               c_void_p),      # struct pfi_kif *
                 ("tblidx",            c_int),
                 ("states",            c_uint64),
                 ("curweight",         c_int),
@@ -258,7 +258,7 @@ class pf_pool(Structure):               # From /usr/include/net/pfvar.h
 
 
 class pf_rule_ptr(Union):               # From /usr/include/net/pfvar.h
-    _fields_ = [("ptr",               c_void_p),      # (struct pf_rule *)
+    _fields_ = [("ptr",               c_void_p),      # struct pf_rule *
                 ("nr",                c_uint32)]
 
 
@@ -378,7 +378,7 @@ class pfioc_trans_e(Structure):         # From /usr/include/net/pfvar.h
 class pfioc_trans(BufferStructure):     # From /usr/include/net/pfvar.h
     _fields_ = [("size",              c_int),
                 ("esize",             c_int),
-                ("array",             c_void_p)]      # (struct pfioc_trans_e *)
+                ("array",             c_void_p)]      # struct pfioc_trans_e *
 
 
 class pfr_addr(Structure):              # From /usr/include/net/pfvar.h
