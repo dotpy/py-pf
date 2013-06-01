@@ -968,7 +968,7 @@ class PFRule(PFObject):
             if self.scrub_flags & PFSTATE_RANDOMID:
                 opts.append("random-id")
             if self.min_ttl:
-                opts.append("min-ttl {.min_ttl}".format(self.min_ttl))
+                opts.append("min-ttl {.min_ttl}".format(self))
             if self.scrub_flags & PFSTATE_SCRUB_TCP:
                 opts.append("reassemble tcp")
             if self.max_mss:
