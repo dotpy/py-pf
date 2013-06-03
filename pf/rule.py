@@ -777,10 +777,9 @@ class PFRule(PFObject):
         if self.action > PF_MATCH:
             s = "action({.action})".format(self)
         elif isinstance(self, PFRuleset):
-            if self.name:
-                s = pf_anchors[self.action]
-                if not self.name.startswith("_"):
-                    s += " \"{.name}\"".format(self)
+            s = pf_anchors[self.action]
+            if not self.name.startswith("_"):
+                s += " \"{.name}\"".format(self)
         else:
             s = pf_actions[self.action]
 
