@@ -266,9 +266,10 @@ PFR_DIR_OUT             = 1
 PFR_DIR_MAX             = 2
 
 PFR_OP_BLOCK            = 0
-PFR_OP_PASS             = 1
-PFR_OP_ADDR_MAX         = 2
-PFR_OP_TABLE_MAX        = 3
+PFR_OP_MATCH            = 1
+PFR_OP_PASS             = 2
+PFR_OP_ADDR_MAX         = 3
+PFR_OP_TABLE_MAX        = 4
 PFR_OP_XPASS            = PFR_OP_ADDR_MAX
 
 PFR_REFCNT_RULE         = 0
@@ -311,7 +312,6 @@ PRCF_DEFAULTCLASS       = 0x1000
 HFCF_RED                = 0x0001
 HFCF_ECN                = 0x0002
 HFCF_RIO                = 0x0004
-HFCF_CLEARDSCP          = 0x0010
 HFCF_DEFAULTCLASS       = 0x1000
 
 # ICMP types (from /usr/include/netinet/ip_icmp.h)

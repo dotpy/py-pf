@@ -1,3 +1,8 @@
+Nov 10, 2013 -- version 0.1.1
+----------------------------
+- Updated to OpenBSD 5.4
+
+
 May 2, 2013 -- version 0.1.0
 ----------------------------
 - Updated to OpenBSD 5.3

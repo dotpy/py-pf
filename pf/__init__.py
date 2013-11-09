@@ -2,7 +2,7 @@
 
 
 __copyright__ = """
-Copyright (c) 2008-2012, Daniele Mazzocchio
+Copyright (c) 2008-2013, Daniele Mazzocchio
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -33,16 +33,12 @@ import os
 
 
 __author__  = "Daniele Mazzocchio <danix@kernel-panic.it>"
-__version__ = "0.0.9"
+__version__ = "0.1.1"
 
-__OBSD_VERSION__ = "5.2"
-
-
-class PFError(Exception):
-    """Base class for PF-related errors."""
-    pass
+__OBSD_VERSION__ = "5.4"
 
 
+from pf.exceptions import PFError
 from pf.constants import *
 from pf.status import *
 from pf.state import *

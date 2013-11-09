@@ -12,8 +12,8 @@ system](http://www.openbsd.org/faq/faq15.html).
 
 Installation
 ------------
-Download the source code from [GitHub](https://github.com/dotpy/py-pf.git) and
-run the install script:
+Download the source code from [GitHub](https://github.com/dotpy/py-pf) and run
+the install script:
 
     # python setup.py install
 

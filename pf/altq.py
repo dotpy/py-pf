@@ -1,10 +1,10 @@
 """Classes to represent Packet Filter's queueing schedulers and statistics."""
 
+from pf.exceptions import PFError
 from pf.constants import *
 from pf._struct import *
 from pf._base import PFObject
 from pf._utils import rate2str, getifmtu
-from pf import PFError
 
 
 __all__ = ['PFAltqCBQ',

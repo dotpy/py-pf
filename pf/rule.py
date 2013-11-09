@@ -6,6 +6,7 @@ import re
 import pwd
 import grp
 
+from pf.exceptions import PFError
 from pf.constants import *
 from pf._struct import *
 from pf._base import PFObject

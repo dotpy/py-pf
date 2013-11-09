@@ -41,7 +41,7 @@ __all__ = ['pfioc_limit',
 
 # Constants
 IFNAMSIZ             = 16               # From /usr/include/net/if.h
-PFRES_MAX            = 15               # From /usr/include/net/pfvar.h
+PFRES_MAX            = 16               # From /usr/include/net/pfvar.h
 LCNT_MAX             = 7                # From /usr/include/net/pfvar.h
 FCNT_MAX             = 3                # From /usr/include/net/pfvar.h
 SCNT_MAX             = 3                # From /usr/include/net/pfvar.h
@@ -90,10 +90,10 @@ class pf_status(BufferStructure):       # From /usr/include/net/pfvar.h
                 ("pcounters",         c_uint64 * 3 * 2 * 2),
                 ("bcounters",         c_uint64 * 2 * 2),
                 ("stateid",           c_uint64),
+				("since",             c_uint32),
                 ("running",           c_uint32),
                 ("states",            c_uint32),
                 ("src_nodes",         c_uint32),
-                ("since",             c_uint32),
                 ("debug",             c_uint32),
                 ("hostid",            c_uint32),
                 ("reass",             c_uint32),
@@ -425,7 +425,7 @@ class pfr_tstats(Structure):            # From /usr/include/net/pfvar.h
                 ("pfrts_bytes",      c_uint64 * PFR_OP_TABLE_MAX * PFR_DIR_MAX),
                 ("pfrts_match",       c_uint64),
                 ("pfrts_nomatch",     c_uint64),
-                ("pfrts_tzero",       c_long),
+                ("pfrts_tzero",       c_uint32),        # time_t
                 ("pfrts_cnt",         c_int),
                 ("pfrts_refcnt",      c_int * PFR_REFCNT_MAX)]
 
@@ -441,7 +441,7 @@ class pfi_kif(Structure):               # From /usr/include/net/pfvar.h
                 ("pfik_tree",         _RB_ENTRY),
                 ("pfik_packets",      c_uint64 * 2 * 2 * 2),
                 ("pfik_bytes",        c_uint64 * 2 * 2 * 2),
-                ("pfik_tzero",        c_uint32),
+                ("pfik_tzero",        c_uint32),      # time_t
                 ("pfik_flags",        c_int),
                 ("pfik_flags_new",    c_int),
                 ("pfik_ah_cookie",    c_void_p),
@@ -655,7 +655,7 @@ class ifreq(BufferStructure):           # From /usr/include/net/if.h
 class if_data(Structure):               # From /usr/include/net/if.h
     _MCLPOOLS = 7
 
-    class _mclpool(Structure):
+    class _mclpool(Structure):          # From /usr/include/net/if.h
         _fields_ = [("mcl_grown",    c_uint),
                     ("mcl_alive",    c_ushort),
                     ("mcl_hwm",      c_ushort),

@@ -250,7 +250,6 @@ icmp6_types = {
     MLD_MTRACE:                 "mtrace"}
 
 # PF Optimization Hints
-
 pf_hint_normal = {
     "tcp.first": 2 * 60,
     "tcp.opening": 30,

@@ -16,8 +16,8 @@ from pf.tests import TestCommand
 
 
 __author__ = "Daniele Mazzocchio <danix@kernel-panic.it>"
-__version__ = "0.1.0"
-__date__    = "May 2, 2013"
+__version__ = "0.1.1"
+__date__    = "Nov 10, 2013"
 
 
 setup(name         = "py-pf",
