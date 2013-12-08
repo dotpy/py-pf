@@ -829,7 +829,9 @@ class PFRule(PFObject):
         if self.quick:
             s += " quick"
 
-        if self.ifname:
+        if self.ifname and self.ifname != "all":
+            # "on all" not printed because it would make
+            # the rule not parseable by pfctl
             if self.ifnot:
                 s += " on ! {.ifname}".format(self)
             else:
