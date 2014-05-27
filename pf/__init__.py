@@ -2,7 +2,7 @@
 
 
 __copyright__ = """
-Copyright (c) 2008-2013, Daniele Mazzocchio
+Copyright (c) 2008-2014, Daniele Mazzocchio
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -33,9 +33,9 @@ import os
 
 
 __author__  = "Daniele Mazzocchio <danix@kernel-panic.it>"
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
-__OBSD_VERSION__ = "5.4"
+__OBSD_VERSION__ = "5.5"
 
 
 from pf.exceptions import PFError
@@ -44,7 +44,7 @@ from pf.status import *
 from pf.state import *
 from pf.table import *
 from pf.rule import *
-from pf.altq import *
+from pf.queue import *
 from pf.filter import *
 
 import pf.lib
@@ -67,9 +67,8 @@ __all__ = ['PFError',
            'PFTableAddr',
            'PFTable',
            'PFTStats',
-           'PFAltqCBQ',
-           'PFAltqHFSC',
-           'PFAltqPriQ',
+           'ServiceCurve',
+           'PFQueue',
            'PacketFilter']
 
 import pf.constants

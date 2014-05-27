@@ -20,13 +20,13 @@ class TestPacketFilter(unittest.TestCase):
                             "ruleset": self.pf.get_ruleset()}
         if not self._init_state["enabled"]:
             self.pf.enable()
-            self.pf.enable_altq()
+#            self.pf.enable_altq()
         self.pf.clear_rules()
 
     def tearDown(self):
         self.pf.clear_rules()
         if not self._init_state["enabled"]:
-            self.pf.disable_altq()
+#            self.pf.disable_altq()
             self.pf.disable()
         else:
             self.pf.load_ruleset(self._init_state["ruleset"])
@@ -37,9 +37,9 @@ class TestPacketFilter(unittest.TestCase):
         self.pf.enable()
         self.assertTrue(self.pf.get_status().running)
 
-    def test_enable_altq(self):
-        self.pf.disable_altq()
-        self.pf.enable_altq()
+#    def test_enable_altq(self):
+#        self.pf.disable_altq()
+#        self.pf.enable_altq()
 
     def test_set_debug(self):
         _dbg = self.pf.get_status().debug
@@ -117,114 +117,32 @@ class TestPacketFilter(unittest.TestCase):
         self.pf.clear_rules()
         self.assertFalse(self.pf.get_ruleset().rules)
 
-    def test_clear_altqs(self):
-        self._load_altq()
-        self.assertTrue(self.pf.get_altqs())
-        self.pf.clear_altqs()
-        self.assertFalse(self.pf.get_altqs())
-
-    def test_add_altqs_CBQ(self):
+    def test_load_queues(self):
         # Rules to load in pf.conf format:
-        #   altq on $ifname priq bandwidth 5Mb queue {std, http, mail}
-        #   queue std on $ifname bandwidth 500Kb cbq(default)
-        #   queue http on $ifname bandwidth 3Mb cbq(red borrow) {emp, dev}
-        #   queue  emp on $ifname bandwidth 450Kb
-        #   queue  dev on $ifname bandwidth 2.25Mb cbq(borrow)
-        #   queue mail on $ifname bandwidth 500Kb priority 0 cbq(red ecn borrow)
-        ifbw    = 5 * 1000 * 1000      # Max bandwidth (5Mb)
+        #   queue std on em0 bandwidth 100M
+        #   queue ssh parent std bandwidth 10M burst 90M for 100ms
+        #   queue mail parent std bandwidth 10M, min 5M, max 25M
+        #   queue http parent std bandwidth 80M default
         ifname  = self.testif
         parentq = "root_" + ifname
-
-        altqs = [pf.PFAltqCBQ(ifname=ifname, ifbandwidth=ifbw),
-                 pf.PFAltqCBQ(qname=parentq, ifname=ifname,
-                              ifbandwidth=ifbw, bandwidth=ifbw),
-                 pf.PFAltqCBQ(qname="std", ifname=ifname, ifbandwidth=ifbw,
-                              parent=parentq, bandwidth=500*1000,
-                              optflags=pf.CBQCLF_DEFCLASS),
-                 pf.PFAltqCBQ(qname="http", ifname=ifname, ifbandwidth=ifbw,
-                              parent=parentq, bandwidth=3*1000*1000,
-                              optflags=pf.CBQCLF_RED|pf.CBQCLF_BORROW),
-                 pf.PFAltqCBQ(qname="emp", ifname=ifname, ifbandwidth=ifbw,
-                              parent="http", bandwidth=450*1000),
-                 pf.PFAltqCBQ(qname="dev", ifname=ifname, ifbandwidth=ifbw,
-                              parent="http", bandwidth=int(2.25*1000*1000),
-                              optflags=pf.CBQCLF_BORROW),
-                 pf.PFAltqCBQ(qname="mail", ifname=ifname, ifbandwidth=ifbw,
-                              priority=0, parent=parentq, bandwidth=500*1000,
-                              optflags=(pf.CBQCLF_ECN|pf.CBQCLF_RED|
-                                        pf.CBQCLF_BORROW))]
-        self.pf.clear_altqs()
-        self.pf.add_altqs(*altqs)
-        self.assertEqual(len(self.pf.get_altqs()), len(altqs))
-        for altq in self.pf.get_altqs():
-            self.assertIn(altq.qname, map(lambda q: q.qname, altqs))
-
-    def test_add_altqs_HFSC(self):
-        # Rules to load in pf.conf format:
-        #   altq on $ifname hfsc bandwidth 5Mb tbrsize 12000
-        #   queue pri on $ifname bandwidth 482.16Kb priority 7 hfsc(default)
-        #   queue def on $ifname bandwidth 482.16Kb priority 5 {ssh_login, \
-        #                                                       http, smtp}
-        #   queue  ssh_login on $ifname bandwidth 462.82Kb priority 5
-        #   queue  http on $ifname bandwidth 4.82Kb priority 4
-        #   queue  smtp on $ifname bandwidth 4.82Kb priority 4
-        #   queue mus on $ifname bandwidth 9.84Kb priority 4
-        #   queue tor on $ifname bandwidth 9.84Kb priority 3
-        ifbw    = 5 * 1000 * 1000      # Max bandwidth (5Mb)
-        ifname  = self.testif
-        parentq = "root_" + ifname
-
-        altqs = [pf.PFAltqHFSC(ifname=ifname, ifbandwidth=ifbw),
-                 pf.PFAltqHFSC(qname=parentq, ifname=ifname, ifbandwidth=ifbw,
-                               bandwidth=ifbw, priority=0),
-                 pf.PFAltqHFSC(qname="pri", ifname=ifname, ifbandwidth=ifbw,
-                               parent=parentq, bandwidth=482160, priority=7,
-                               optflags=pf.HFCF_DEFAULTCLASS),
-                 pf.PFAltqHFSC(qname="def", ifname=ifname, ifbandwidth=ifbw,
-                               parent=parentq, bandwidth=482160, priority=5),
-                 pf.PFAltqHFSC(qname="ssh_login", ifname=ifname,
-                               ifbandwidth=ifbw, parent="def",
-                               bandwidth=462816, priority=5),
-                 pf.PFAltqHFSC(qname="http", ifname=ifname, ifbandwidth=ifbw,
-                               parent="def", bandwidth=4821, priority=4),
-                 pf.PFAltqHFSC(qname="smtp", ifname=ifname, ifbandwidth=ifbw,
-                               parent="def", bandwidth=4821, priority=4),
-                 pf.PFAltqHFSC(qname="mus", ifname=ifname, ifbandwidth=ifbw,
-                               parent=parentq, bandwidth=9840, priority=4),
-                 pf.PFAltqHFSC(qname="tor", ifname=ifname, ifbandwidth=ifbw,
-                               parent=parentq, bandwidth=9840, priority=3)]
-        self.pf.clear_altqs()
-        self.pf.add_altqs(*altqs)
-        self.assertEqual(len(self.pf.get_altqs()), len(altqs))
-        for altq in self.pf.get_altqs():
-            self.assertIn(altq.qname, map(lambda q: q.qname, altqs))
-
-    def test_add_altqs_PriQ(self):
-        # Rules to load in pf.conf format:
-        #   altq on $ifname priq bandwidth 5Mb
-        #   queue std_out priq(default)
-        #   queue ssh_im_out priority 4 priq(red)
-        #   queue dns_out priority 5
-        ifbw    = 5 * 1000 * 1000      # Max bandwidth (5Mb)
-        ifname  = self.testif
-
-        altqs = [pf.PFAltqPriQ(ifname=ifname, ifbandwidth=ifbw),
-                 pf.PFAltqPriQ("std_out", ifname=ifname, ifbandwidth=ifbw,
-                               optflags=pf.PRCF_DEFAULTCLASS),
-                 pf.PFAltqPriQ("ssh_im_out", ifname=ifname, ifbandwidth=ifbw,
-                               priority=4, optflags=pf.PRCF_RED),
-                 pf.PFAltqPriQ("dns_out", ifname=ifname, ifbandwidth=ifbw,
-                               priority=5)]
-
-        self.pf.clear_altqs()
-        self.pf.add_altqs(*altqs)
-        for altq in self.pf.get_altqs():
-            self.assertIn(altq.qname, map(lambda q: q.qname, altqs))
-
-    def test_get_qstats(self):
-        self._load_altq()
-        self.assertTrue(self.pf.get_altqs())
-        self.assertTrue(self.pf.get_qstats())
+        MB = 10**6
+        queues = [pf.PFQueue(qname=parentq, ifname=ifname),
+                  pf.PFQueue(qname="std", parent=parentq, ifname=ifname,
+                             linkshare=pf.ServiceCurve(bandwidth=100*MB)),
+                  pf.PFQueue(qname="ssh", parent="std", ifname=ifname,
+                             linkshare=pf.ServiceCurve(10*MB, 90*MB, 100)),
+                  pf.PFQueue(qname="mail", parent="std", ifname=ifname,
+                             linkshare=pf.ServiceCurve(bandwidth=10*MB),
+                             realtime=pf.ServiceCurve(bandwidth=5*MB),
+                             upperlimit=pf.ServiceCurve(bandwidth=25*MB)),
+                  pf.PFQueue(qname="http", parent="std", ifname=ifname,
+                             linkshare=pf.ServiceCurve(bandwidth=80*MB),
+                             flags=pf.HFSC_DEFAULTCLASS)]
+        self.pf.clear_rules()
+        self.pf.load_queues(*queues)
+        self.assertEqual(len(self.pf.get_queues()), len(queues))
+        for queue in self.pf.get_queues():
+            self.assertIn(queue.qname, map(lambda q: q.qname, queues))
 
     def test_load_ruleset(self):
         iface = pf.PFAddr(type=pf.PF_ADDR_DYNIFTL, ifname=self.testif)
@@ -351,15 +269,15 @@ class TestPacketFilter(unittest.TestCase):
         table = self.pf.get_tables()[0]
         self.assertEqual(self.pf.clear_tstats(table), 1)
 
-    def _load_altq(self):
-        ifbw    = 5 * 1000 * 1000      # Max bandwidth (5Mb)
-        altqs = [pf.PFAltqPriQ(ifname=self.testif,
-                               ifbandwidth=ifbw),
-                 pf.PFAltqPriQ("std_out",
-                               ifname=self.testif,
-                               ifbandwidth=ifbw,
-                               optflags=pf.PRCF_DEFAULTCLASS)]
-        self.pf.add_altqs(*altqs)
+#    def _load_altq(self):
+#        ifbw    = 5 * 1000 * 1000      # Max bandwidth (5Mb)
+#        altqs = [pf.PFAltqPriQ(ifname=self.testif,
+#                               ifbandwidth=ifbw),
+#                 pf.PFAltqPriQ("std_out",
+#                               ifname=self.testif,
+#                               ifbandwidth=ifbw,
+#                               optflags=pf.PRCF_DEFAULTCLASS)]
+#        self.pf.add_altqs(*altqs)
 
     def _add_table(self, tblname="test_table"):
         table = pf.PFTable(tblname, "10.0.1.10",

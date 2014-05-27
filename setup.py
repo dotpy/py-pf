@@ -16,8 +16,8 @@ from pf.tests import TestCommand
 
 
 __author__ = "Daniele Mazzocchio <danix@kernel-panic.it>"
-__version__ = "0.1.1"
-__date__    = "Nov 10, 2013"
+__version__ = "0.1.2"
+__date__    = "May 27, 2014"
 
 
 setup(name         = "py-pf",
@@ -30,7 +30,7 @@ setup(name         = "py-pf",
       cmdclass     = {"test": TestCommand},
       license      = "OSI-Approved :: BSD License",
       description  = "Pure-Python module for managing OpenBSD's Packet Filter",
-      classifiers  = ["Development status :: 2 - Pre-Alpha",
+      classifiers  = ["Development status :: 4 - Beta",
                       "Intended Audience :: System Administrators",
                       "License :: OSI-Approved Open Source :: BSD License",
                       "Natural Language :: English",

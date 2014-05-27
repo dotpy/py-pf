@@ -1,3 +1,16 @@
+May 27, 2014 -- version 0.1.2
+----------------------------
+- Updated to OpenBSD 5.5
+- OpenBSD 5.5 has a new queueing system; thus all the queue classes
+  (`PFAltqCBQ`, `PFAltqHFSC` and `PFAltqPriQ`) and the corresponding stats
+  classes (`CBQStats`, `HFSCStats` and `PriQStats`) have been replaced by the
+  `PFQueue` and `PFQueueStats` classes respectively.
+- Methods for retrieving and adding queues in the `PacketFilter` class (i.e.
+  `get_altqs()` and `add_altqs()`) have been replaced (by `get_queues()` and
+  `load_queues()` respectively). Queues are now cleared along with rules, so
+  the `clear_altqs()` method has been removed.
+
+
 Nov 10, 2013 -- version 0.1.1
 ----------------------------
 - Updated to OpenBSD 5.4

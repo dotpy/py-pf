@@ -249,54 +249,6 @@ icmp6_types = {
     MLD_MTRACE_RESP:            "mtraceresp",
     MLD_MTRACE:                 "mtrace"}
 
-# PF Optimization Hints
-pf_hint_normal = {
-    "tcp.first": 2 * 60,
-    "tcp.opening": 30,
-    "tcp.established": 24 * 60 * 60,
-    "tcp.closing": 15 * 60,
-    "tcp.finwait": 45,
-    "tcp.closed": 90,
-    "tcp.tsdiff": 30
-}
-
-pf_hint_sattelite = {
-    "tcp.first": 3 * 60,
-    "tcp.opening": 30 + 5,
-    "tcp.established": 24 * 60 * 60,
-    "tcp.closing": 15 * 60 + 5,
-    "tcp.finwait": 45 + 5,
-    "tcp.closed": 90 + 5,
-    "tcp.tsdiff": 60
-}
-
-pf_hint_conservative = {
-    "tcp.first": 60 * 60,
-    "tcp.opening": 15 * 60,
-    "tcp.established": 5 * 24 * 60 * 60,
-    "tcp.closing": 60 * 60,
-    "tcp.finwait": 10 * 60,
-    "tcp.closed": 3 * 90,
-    "tcp.tsdiff": 60
-}
-
-pf_hint_aggressive = {
-    "tcp.first": 30,
-    "tcp.opening": 5,
-    "tcp.established": 5 * 60 * 60,
-    "tcp.closing": 60,
-    "tcp.finwait": 30,
-    "tcp.closed": 30,
-    "tcp.tsdiff": 10
-}
-
-pf_hints = {
-    "normal": pf_hint_normal,
-    "sattelite": pf_hint_sattelite,
-    "high-latency": pf_hint_sattelite,
-    "conservative": pf_hint_conservative,
-    "aggressive": pf_hint_aggressive
-}
 
 # Helper functions
 def getprotobynumber(number, file="/etc/protocols"):
@@ -364,9 +316,9 @@ def rate2str(bw):
             break
 
     if int(bw * 100 % 100):
-        return "{:.2f}{}b".format(bw, units[i])
+        return "{:.2f}{}".format(bw, units[i])
     else:
-        return "{}{}b".format(int(bw), units[i])
+        return "{}{}".format(int(bw), units[i])
 
 
 def getifmtu(ifname):

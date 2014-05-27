@@ -16,7 +16,7 @@ from pf.exceptions import PFError
 from pf.constants import *
 from pf._struct import *
 from pf._base import PFObject
-from pf.altq import *
+from pf.queue import *
 from pf.state import PFState
 from pf.status import PFStatus, PFIface
 from pf.table import PFTableAddr, PFTable, PFTStats
@@ -64,13 +64,6 @@ DIOCGETTIMEOUT   = _IOWR('D', 30, pfioc_tm)
 DIOCGETLIMIT     = _IOWR('D', 39, pfioc_limit)
 DIOCSETLIMIT     = _IOWR('D', 40, pfioc_limit)
 DIOCKILLSTATES   = _IOWR('D', 41, pfioc_state_kill)
-DIOCSTARTALTQ    = _IO  ('D', 42)
-DIOCSTOPALTQ     = _IO  ('D', 43)
-DIOCADDALTQ      = _IOWR('D', 45, pfioc_altq)
-DIOCGETALTQS     = _IOWR('D', 47, pfioc_altq)
-DIOCGETALTQ      = _IOWR('D', 48, pfioc_altq)
-#DIOCCHANGEALTQ   = _IOWR('D', 49, pfioc_altq)
-DIOCGETQSTATS    = _IOWR('D', 50, pfioc_qstats)
 #DIOCGETRULESETS  = _IOWR('D', 58, pfioc_ruleset)
 #DIOCGETRULESET   = _IOWR('D', 59, pfioc_ruleset)
 DIOCRCLRTABLES   = _IOWR('D', 60, pfioc_table)
@@ -103,6 +96,10 @@ DIOCSETIFFLAG    = _IOWR('D', 89, pfioc_iface)
 DIOCCLRIFFLAG    = _IOWR('D', 90, pfioc_iface)
 #DIOCKILLSRCNODES = _IOWR('D', 91, pfioc_src_node_kill)
 DIOCSETREASS     = _IOWR('D', 92, c_uint32)
+DIOCADDQUEUE	 = _IOWR('D', 93, pfioc_queue)
+DIOCGETQUEUES	 = _IOWR('D', 94, pfioc_queue)
+DIOCGETQUEUE	 = _IOWR('D', 95, pfioc_queue)
+DIOCGETQSTATS	 = _IOWR('D', 96, pfioc_qstats)
 
 
 class _PFTrans(object):
@@ -163,35 +160,7 @@ class PacketFilter(object):
                 ioctl(d, DIOCSTOP)
             except IOError, (e, s):
                 if e != ENOENT:       # ENOENT means PF is already disabled
-                    raise
-
-    def enable_altq(self):
-        """Enable the ALTQ bandwidth control and packet prioritization system.
-
-        Raise PFError if ALTQ is not supported by the system.
-        """
-        with open(self.dev, 'w') as d:
-            try:
-                ioctl(d, DIOCSTARTALTQ)
-            except IOError, (e, s):
-                if e == ENODEV:
-                    raise PFError("No ALTQ support in kernel")
-                elif e != EEXIST:     # EEXIST means ALTQ is already enabled
-                    raise
-
-    def disable_altq(self):
-        """Disable the ALTQ bandwidth control and packet prioritization system.
-
-        Raise PFError if ALTQ is not supported by the system.
-        """
-        with open(self.dev, 'w') as d:
-            try:
-                ioctl(d, DIOCSTOPALTQ)
-            except IOError, (e, s):
-                if e == ENODEV:
-                    raise PFError("No ALTQ support in kernel")
-                elif e != ENOENT:     # ENOENT means ALTQ is already disabled
-                    raise
+                    raise 
 
     def set_debug(self, level):
         """Set the debug level.
@@ -446,110 +415,39 @@ class PacketFilter(object):
         """Clear all rules contained in the anchor 'path'."""
         self.load_ruleset(PFRuleset(), path, PF_TRANS_RULESET)
 
-    def clear_altqs(self):
-        """Clear all ALTQ disciplines and queues."""
-        self.load_ruleset(PFRuleset(), "", PF_TRANS_ALTQ)
+    def load_queues(self, *queues):
+        """Load a set of queues on an interface.
 
-    def get_altqs(self):
-        """Retrieve the currently loaded ALTQ disciplines and queues.
-
-        Return a tuple of PFAltq* objects.
+        'queues' must be PFQueue objects.
         """
-        qtypes = {ALTQT_CBQ:  PFAltqCBQ,
-                  ALTQT_HFSC: PFAltqHFSC,
-                  ALTQT_PRIQ: PFAltqPriQ}
-
-        pa = pfioc_altq()
-        altqs = []
-
         with open(self.dev, 'w') as d:
-            try:
-                ioctl(d, DIOCGETALTQS, pa.asBuffer())
-            except IOError, (e, s):
-                if e == ENODEV:
-                    raise PFError("No ALTQ support in kernel")
-                raise
-            else:
-                for nr in range(pa.nr):
-                    pa.nr = nr
-                    ioctl(d, DIOCGETALTQ, pa.asBuffer())
-                    altqs.append(qtypes[pa.altq.scheduler](pa.altq))
+            with _PFTrans(d, "", PF_TRANS_RULESET) as t:
+                for queue in queues:
+                    q = pfioc_queue(ticket=t.array[0].ticket,
+                                    queue=queue._to_struct())
+                    ioctl(d, DIOCADDQUEUE, q)
 
-        return tuple(altqs)
+    def get_queues(self):
+        """Retrieve the currently loaded queues.
 
-    def _add_altq(self, altq, ticket, dev):
-        """Load an ALTQ rule and return its queue ID."""
-        pa = pfioc_altq(altq=altq._to_struct())
-        pa.ticket = ticket
-        try:
-            ioctl(dev, DIOCADDALTQ, pa.asBuffer())
-        except IOError, (e, s):
-            if e == ENXIO:
-                raise PFError("qtype not configured")
-            elif e == ENODEV:
-                raise PFError("No ALTQ support in kernel")
-            raise
-
-        return pa.altq.qid
-
-    def add_altqs(self, *altqs):
-        """Load an ALTQ discipline and one or more queues on an interface.
-
-        'altqs' must be PFAltq* objects.
+        Return a tuple of PFQueue objects.
         """
-        qids = {}      # Dict for recording queue IDs as they are loaded
+        queues = []
+        pq = pfioc_queue()
+        with open(self.dev, 'r') as d:
+            ioctl(d, DIOCGETQUEUES, pq)
 
-        with open(self.dev, 'w') as d:
-            with _PFTrans(d, "", PF_TRANS_ALTQ) as t:
-                for altq in altqs:
-                    altq.parent_qid = qids.get(altq.parent, 0)
-                    pa = pfioc_altq(altq=altq._to_struct())
-                    pa.ticket = t.array[0].ticket
-                    try:
-                        ioctl(d, DIOCADDALTQ, pa.asBuffer())
-                    except IOError, (e, s):
-                        if e == ENXIO:
-                            raise PFError("qtype not configured")
-                        elif e == ENODEV:
-                            raise PFError("No ALTQ support in kernel")
-                        raise
-                    else:
-                        qids[altq.qname] = pa.altq.qid
+            qstats = queue_stats()
+            for nr in range(pq.nr):
+                pqs = pfioc_qstats(nr=nr, ticket=pq.ticket,
+                                   buf=addressof(qstats.data),
+                                   nbytes=sizeof(class_stats))
+                ioctl(d, DIOCGETQSTATS, pqs)
+                queue = PFQueue(pqs.queue)
+                queue.stats = PFQueueStats(qstats.data)
+                queues.append(queue)
 
-    def get_qstats(self):
-        """Get statistics for current ALTQs."""
-        pa = pfioc_altq()
-        pq = pfioc_qstats()
-        qs = queue_stats()
-        qstats = []
-
-        with open(self.dev, 'w') as d:
-            try:
-                ioctl(d, DIOCGETALTQS, pa.asBuffer())
-            except IOError, (e, s):
-                if e == ENODEV:
-                    raise PFError("No ALTQ support in kernel")
-                raise
-
-            for nr in range(pa.nr):
-                pa.nr = nr
-                ioctl(d, DIOCGETALTQ, pa.asBuffer())
-                if pa.altq.qid <= 0:
-                    continue
-                pq.nr = nr
-                pq.ticket = pa.ticket
-                pq.buf = addressof(qs)
-                pq.nbytes = sizeof(qs)
-                ioctl(d, DIOCGETQSTATS, pq.asBuffer())
-                if pa.altq.scheduler == ALTQT_CBQ:
-                    s = CBQStats(PFAltqCBQ(pa.altq), qs.data.cbq_stats)
-                elif pa.altq.scheduler == ALTQT_HFSC:
-                    s = HFSCStats(PFAltqHFSC(pa.altq), qs.data.hfsc_stats)
-                elif pa.altq.scheduler == ALTQT_PRIQ:
-                    s = PriQStats(PFAltqPriQ(pa.altq), qs.data.priq_stats)
-                qstats.append(s)
-
-        return tuple(qstats)
+        return queues
 
     def _get_rules(self, path, dev, clear):
         """Recursively retrieve rules from the specified ruleset."""

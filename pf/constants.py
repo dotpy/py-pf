@@ -284,35 +284,36 @@ PFRKE_MAX               = 3
 
 # Interface flags (from /usr/include/net/pfvar.h)
 PFI_IFLAG_SKIP          = 0x0100
+PFI_IFLAG_ANY		    = 0x0200
 
-# ALTQ constants (from /usr/include/altq/altq.h)
-ALTQT_CBQ               = 1
-ALTQT_HFSC              = 8
-ALTQT_PRIQ              = 11
+## ALTQ constants (from /usr/include/altq/altq.h)
+#ALTQT_CBQ               = 1
+#ALTQT_HFSC              = 8
+#ALTQT_PRIQ              = 11
 
 # From /usr/src/sbin/pfctl/pfctl.h
 DEFAULT_PRIORITY        = 1
 DEFAULT_QLIMIT          = 50
 
-# CBQ class flags (from /usr/include/altq/altq_cbq.h)
-CBQCLF_RED              = 0x0001
-CBQCLF_ECN              = 0x0002
-CBQCLF_RIO              = 0x0004
-CBQCLF_BORROW           = 0x0020
-CBQCLF_WRR              = 0x0100
-CBQCLF_ROOTCLASS        = 0x1000
-CBQCLF_DEFCLASS         = 0x2000
-# PRIQ class flags (from /usr/include/altq/altq_priq.h)
-PRCF_RED                = 0x0001
-PRCF_ECN                = 0x0002
-PRCF_RIO                = 0x0004
-PRCF_CLEARDSCP          = 0x0010
-PRCF_DEFAULTCLASS       = 0x1000
+## CBQ class flags (from /usr/include/altq/altq_cbq.h)
+#CBQCLF_RED              = 0x0001
+#CBQCLF_ECN              = 0x0002
+#CBQCLF_RIO              = 0x0004
+#CBQCLF_BORROW           = 0x0020
+#CBQCLF_WRR              = 0x0100
+#CBQCLF_ROOTCLASS        = 0x1000
+#CBQCLF_DEFCLASS         = 0x2000
+## PRIQ class flags (from /usr/include/altq/altq_priq.h)
+#PRCF_RED                = 0x0001
+#PRCF_ECN                = 0x0002
+#PRCF_RIO                = 0x0004
+#PRCF_CLEARDSCP          = 0x0010
+#PRCF_DEFAULTCLASS       = 0x1000
 # HFSC class flags (from /usr/include/altq/altq_hfsc.h)
-HFCF_RED                = 0x0001
-HFCF_ECN                = 0x0002
-HFCF_RIO                = 0x0004
-HFCF_DEFAULTCLASS       = 0x1000
+HFSC_RED                = 0x0001
+HFSC_ECN                = 0x0002
+HFSC_RIO                = 0x0004
+HFSC_DEFAULTCLASS       = 0x1000
 
 # ICMP types (from /usr/include/netinet/ip_icmp.h)
 ICMP_ECHO                        = 8
@@ -342,7 +343,7 @@ ICMP_SKIP                        = 39
 ICMP_PHOTURIS                    = 40
 
 # ICMP codes (from /usr/include/netinet/ip_icmp.h)
-ICMP_UNREACH_NET                 = 0
+ICMP_UNREACH_NET                 = 0    # Destination unreachable
 ICMP_UNREACH_HOST                = 1
 ICMP_UNREACH_PROTOCOL            = 2
 ICMP_UNREACH_PORT                = 3
@@ -358,18 +359,18 @@ ICMP_UNREACH_TOSHOST             = 12
 ICMP_UNREACH_FILTER_PROHIB       = 13
 ICMP_UNREACH_HOST_PRECEDENCE     = 14
 ICMP_UNREACH_PRECEDENCE_CUTOFF   = 15
-ICMP_REDIRECT_NET                = 0
+ICMP_REDIRECT_NET                = 0    # Shorter route
 ICMP_REDIRECT_HOST               = 1
 ICMP_REDIRECT_TOSNET             = 2
 ICMP_REDIRECT_TOSHOST            = 3
-ICMP_ROUTERADVERT_NORMAL         = 0
+ICMP_ROUTERADVERT_NORMAL         = 0    # Router advertisement
 ICMP_ROUTERADVERT_NOROUTE_COMMON = 16
-ICMP_TIMXCEED_INTRANS            = 0
+ICMP_TIMXCEED_INTRANS            = 0    # Time exceeded
 ICMP_TIMXCEED_REASS              = 1
-ICMP_PARAMPROB_ERRATPTR          = 0
+ICMP_PARAMPROB_ERRATPTR          = 0    # IP header bad
 ICMP_PARAMPROB_OPTABSENT         = 1
 ICMP_PARAMPROB_LENGTH            = 2
-ICMP_PHOTURIS_UNKNOWN_INDEX      = 1
+ICMP_PHOTURIS_UNKNOWN_INDEX      = 1    # Photuris
 ICMP_PHOTURIS_AUTH_FAILED        = 2
 ICMP_PHOTURIS_DECRYPT_FAILED     = 3
 
