@@ -286,29 +286,10 @@ PFRKE_MAX               = 3
 PFI_IFLAG_SKIP          = 0x0100
 PFI_IFLAG_ANY		    = 0x0200
 
-## ALTQ constants (from /usr/include/altq/altq.h)
-#ALTQT_CBQ               = 1
-#ALTQT_HFSC              = 8
-#ALTQT_PRIQ              = 11
-
 # From /usr/src/sbin/pfctl/pfctl.h
 DEFAULT_PRIORITY        = 1
 DEFAULT_QLIMIT          = 50
 
-## CBQ class flags (from /usr/include/altq/altq_cbq.h)
-#CBQCLF_RED              = 0x0001
-#CBQCLF_ECN              = 0x0002
-#CBQCLF_RIO              = 0x0004
-#CBQCLF_BORROW           = 0x0020
-#CBQCLF_WRR              = 0x0100
-#CBQCLF_ROOTCLASS        = 0x1000
-#CBQCLF_DEFCLASS         = 0x2000
-## PRIQ class flags (from /usr/include/altq/altq_priq.h)
-#PRCF_RED                = 0x0001
-#PRCF_ECN                = 0x0002
-#PRCF_RIO                = 0x0004
-#PRCF_CLEARDSCP          = 0x0010
-#PRCF_DEFAULTCLASS       = 0x1000
 # HFSC class flags (from /usr/include/altq/altq_hfsc.h)
 HFSC_RED                = 0x0001
 HFSC_ECN                = 0x0002

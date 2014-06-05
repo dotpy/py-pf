@@ -10,8 +10,6 @@ __all__ = ["ServiceCurve",
            "PFQueue",
            "PFQueueStats"]
 
-# Default bandwidth?
-# Default qlimit?
 
 class ServiceCurve(PFObject):
     """ """
