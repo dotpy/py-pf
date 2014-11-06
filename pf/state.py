@@ -179,7 +179,7 @@ class PFState(PFObject):
               src.state < PFUDPS_NSTATES and dst.state < PFUDPS_NSTATES) or \
              (self.proto not in (IPPROTO_ICMP, IPPROTO_ICMPV6) and
               src.state < PFOTHERS_NSTATES and dst.state < PFOTHERS_NSTATES):
-            s += "{}:{}".format(states[src.state], states[dst.state])
+            s += "{}:{}".format(udpstates[src.state], udpstates[dst.state])
         else:
             s += "{.state}:{.state}".format(src, dst)
 

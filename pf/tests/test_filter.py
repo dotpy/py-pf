@@ -20,13 +20,11 @@ class TestPacketFilter(unittest.TestCase):
                             "ruleset": self.pf.get_ruleset()}
         if not self._init_state["enabled"]:
             self.pf.enable()
-#            self.pf.enable_altq()
         self.pf.clear_rules()
 
     def tearDown(self):
         self.pf.clear_rules()
         if not self._init_state["enabled"]:
-#            self.pf.disable_altq()
             self.pf.disable()
         else:
             self.pf.load_ruleset(self._init_state["ruleset"])
@@ -36,10 +34,6 @@ class TestPacketFilter(unittest.TestCase):
         self.assertFalse(self.pf.get_status().running)
         self.pf.enable()
         self.assertTrue(self.pf.get_status().running)
-
-#    def test_enable_altq(self):
-#        self.pf.disable_altq()
-#        self.pf.enable_altq()
 
     def test_set_debug(self):
         _dbg = self.pf.get_status().debug
@@ -94,7 +88,7 @@ class TestPacketFilter(unittest.TestCase):
         self.pf.clear_status()
         self.assertEqual(self.pf.get_status().since, int(time.time()))
 
-    def test_clear_states(self):
+    def __test_clear_states(self):
         self.pf.clear_rules()
         self._create_state()
         self.assertIsNotNone(filter(lambda s: s.proto == IPPROTO_UDP,
@@ -103,7 +97,7 @@ class TestPacketFilter(unittest.TestCase):
         for state in self.pf.get_states():
             self.assertNotEqual(state.proto, IPPROTO_UDP)
 
-    def test_kill_states(self):
+    def __test_kill_states(self):
         self.pf.clear_rules()
         self._create_state()
         self.assertEqual(self.pf.kill_states(proto=IPPROTO_UDP), 1)
@@ -268,16 +262,6 @@ class TestPacketFilter(unittest.TestCase):
         self.assertEqual(self._add_table(), 1)
         table = self.pf.get_tables()[0]
         self.assertEqual(self.pf.clear_tstats(table), 1)
-
-#    def _load_altq(self):
-#        ifbw    = 5 * 1000 * 1000      # Max bandwidth (5Mb)
-#        altqs = [pf.PFAltqPriQ(ifname=self.testif,
-#                               ifbandwidth=ifbw),
-#                 pf.PFAltqPriQ("std_out",
-#                               ifname=self.testif,
-#                               ifbandwidth=ifbw,
-#                               optflags=pf.PRCF_DEFAULTCLASS)]
-#        self.pf.add_altqs(*altqs)
 
     def _add_table(self, tblname="test_table"):
         table = pf.PFTable(tblname, "10.0.1.10",

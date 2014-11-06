@@ -2,7 +2,7 @@
 
 from pf._base import PFObject
 from pf.constants import *
-from pf._struct import pf_queue_scspec, pf_queuespec, class_stats
+from pf._struct import pf_queue_scspec, pf_queuespec, hfsc_class_stats
 from pf._utils import rate2str
 
 
@@ -131,21 +131,20 @@ class PFQueue(PFObject):
 class PFQueueStats(PFObject):
     """ """
 
-    _struct_type = class_stats
+    _struct_type = hfsc_class_stats
 
     def __init__(self, stats=None):
         """ """
         if stats is None:
-            stats = class_stats()
+            stats = hfsc_class_stats()
         super(PFQueueStats, self).__init__(stats)
 
     def _from_struct(self, s):
         """ """
-        stats = s.hfsc_stats
-        self.qlength = stats.qlength
-        self.qlimit  = stats.qlimit
-        self.packets = (stats.xmit_cnt.packets, stats.drop_cnt.packets)
-        self.bytes   = (stats.xmit_cnt.bytes, stats.drop_cnt.bytes)
+        self.qlength = s.qlength
+        self.qlimit  = s.qlimit
+        self.packets = (s.xmit_cnt.packets, s.drop_cnt.packets)
+        self.bytes   = (s.xmit_cnt.bytes, s.drop_cnt.bytes)
 
     def _to_string(self):
         """ """

@@ -441,7 +441,7 @@ class PacketFilter(object):
             for nr in range(pq.nr):
                 pqs = pfioc_qstats(nr=nr, ticket=pq.ticket,
                                    buf=addressof(qstats.data),
-                                   nbytes=sizeof(class_stats))
+                                   nbytes=sizeof(hfsc_class_stats))
                 ioctl(d, DIOCGETQSTATS, pqs)
                 queue = PFQueue(pqs.queue)
                 queue.stats = PFQueueStats(qstats.data)

@@ -1,3 +1,10 @@
+Nov 06, 2014 -- version 0.1.3
+-----------------------------
+- Updated to OpenBSD 5.6
+- Removed the last traces of ALTQ
+- Fixed a little bug in `PFState._to_string()`
+
+
 May 27, 2014 -- version 0.1.2
 ----------------------------
 - Updated to OpenBSD 5.5

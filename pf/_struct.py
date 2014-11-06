@@ -33,10 +33,9 @@ __all__ = ['pfioc_limit',
            'pf_queuespec',
            'pfioc_qstats',
            'pfioc_queue',
-           'class_stats_t',
-           'priq_classstats',
-           'hfsc_classstats',
-           'class_stats',
+           'hfsc_sc',
+           'hfsc_pktcntr',
+           'hfsc_class_stats',
            'queue_stats',
            'ifreq',
            'if_data']
@@ -512,64 +511,23 @@ class pfioc_queue(Structure):           # From /usr/include/net/pfvar.h
                 ("queue",             pf_queuespec)]
 
 
-class service_curve(Structure):         # From /usr/include/altq/altq_hfsc.h
+class hfsc_sc(Structure):               # From /usr/include/net/hfsc.h
     _fields_ = [("m1",                c_uint),
                 ("d",                 c_uint),
                 ("m2",                c_uint)]
 
 
-class pktcntr(Structure):               # From /usr/include/altq/altq.h
+class hfsc_pktcntr(Structure):          # From /usr/include/net/hfsc.h
     _fields_ = [("packets",           c_uint64),
                 ("bytes",             c_uint64)]
 
 
-class redstats(Structure):              # From /usr/include/altq/altq_red.h
-    _fields_ = [("q_avg",             c_int),
-                ("xmit_cnt",          pktcntr),
-                ("drop_cnt",          pktcntr),
-                ("drop_forced",       c_uint),
-                ("drop_unforced",     c_uint),
-                ("marked_packets",    c_uint)]
-
-
-class class_stats_t(Structure):         # From /usr/include/altq/altq_cbq.h
-    _fields_ = [("handle",            c_uint32),
-                ("depth",             c_uint),
-                ("xmit_cnt",          pktcntr),
-                ("drop_cnt",          pktcntr),
-                ("over",              c_uint), 
-                ("borrows",           c_uint),
-                ("overactions",       c_uint),
-                ("delays",            c_uint),
-                ("priority",          c_int),
-                ("maxidle",           c_int),
-                ("minidle",           c_int),
-                ("offtime",           c_int),
-                ("qmax",              c_int),
-                ("ns_per_byte",       c_int),
-                ("wrr_allot",         c_int),
-                ("qcnt",              c_int),
-                ("avgidle",           c_int),
-                ("qtype",             redstats * 3)]
-
-
-class priq_classstats(Structure):       # From /usr/include/altq/altq_priq.h
-    _fields_ = [("class_handle",      c_uint32),
-                ("qlength",           c_uint),
-                ("qlimit",            c_uint),
-                ("period",            c_uint),
-                ("xmitcnt",           pktcntr),
-                ("dropcnt",           pktcntr),
-                ("qtype",             c_int),
-                ("red",               redstats * 3)]
-
-
-class hfsc_classstats(Structure):       # From /usr/include/altq/altq_hfsc.h
+class hfsc_class_stats(Structure):      # From /usr/include/net/hfsc.h
     _fields_ = [("class_id",          c_uint),
                 ("class_handle",      c_uint32),
-                ("rsc",               service_curve),
-                ("fsc",               service_curve),
-                ("usc",               service_curve),
+                ("rsc",               hfsc_sc),
+                ("fsc",               hfsc_sc),
+                ("usc",               hfsc_sc),
                 ("total",             c_uint64),
                 ("cumul",             c_uint64),
                 ("d",                 c_uint64),
@@ -588,24 +546,17 @@ class hfsc_classstats(Structure):       # From /usr/include/altq/altq_hfsc.h
                 ("machclk_freq",      c_uint32),
                 ("qlength",           c_uint),
                 ("qlimit",            c_uint),
-                ("xmit_cnt",          pktcntr),
-                ("drop_cnt",          pktcntr),
+                ("xmit_cnt",          hfsc_pktcntr),
+                ("drop_cnt",          hfsc_pktcntr),
                 ("period",            c_uint),
                 ("vtperiod",          c_uint),
                 ("parentperiod",      c_uint),
                 ("nactive",           c_int),
-                ("qtype",             c_int),
-                ("red",               redstats * 3)]
+                ("qtype",             c_int)]
 
 
-class class_stats(Union):             # From /usr/include/pfctl/pfctl_qstats.c
-    _fields_ = [("cbq_stats",         class_stats_t),
-                ("priq_stats",        priq_classstats),
-                ("hfsc_stats",        hfsc_classstats)]
-
-
-class queue_stats(Structure):         # From /usr/src/sbin/pfctl/pfctl_qstats.c
-    _fields_ = [("data",              class_stats),
+class queue_stats(Structure):         # From /usr/src/sbin/pfctl/pfctl_queue.c
+    _fields_ = [("data",              hfsc_class_stats),
                 ("avgn",              c_int),
                 ("avg_bytes",         c_double),
                 ("avg_packets",       c_double),
