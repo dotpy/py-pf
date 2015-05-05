@@ -2,7 +2,7 @@
 
 
 __copyright__ = """
-Copyright (c) 2008-2014, Daniele Mazzocchio
+Copyright (c) 2008-2015, Daniele Mazzocchio
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,
@@ -33,9 +33,9 @@ import os
 
 
 __author__  = "Daniele Mazzocchio <danix@kernel-panic.it>"
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
-__OBSD_VERSION__ = "5.6"
+__OBSD_VERSION__ = "5.7"
 
 
 from pf.exceptions import PFError

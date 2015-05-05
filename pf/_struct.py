@@ -55,36 +55,19 @@ PF_TAG_NAME_SIZE     = 64               # From /usr/include/net/pfvar.h
 PF_SKIP_COUNT        = 9                # From /usr/include/net/pfvar.h
 RTLABEL_LEN          = 32               # From /usr/include/net/route.h
 PATH_MAX             = 1024             # From /usr/include/sys/syslimits.h
-MAXPATHLEN           = PATH_MAX         # From /usr/include/sys/param.h
 
 
-class BufferStructure(Structure):
-    """A subclass of ctypes.Structure to simplify ioctl() system calls."""
-
-    def __init__(self, **kw):
-        """Call the parent constructor"""
-        super(BufferStructure, self).__init__(**kw)
-
-    def asBuffer(self):
-        """Return a buffer pointing to the Structure.
-
-        This allows ioctl() to write directly to the structure, even if bigger
-        than 1024 bytes.
-        """
-        return (c_char * sizeof(self)).from_address(addressof(self))
-
-
-class pfioc_limit(BufferStructure):     # From /usr/include/net/pfvar.h
+class pfioc_limit(Structure):     # From /usr/include/net/pfvar.h
     _fields_ = [("index",             c_int),
                 ("limit",             c_uint)]
 
 
-class pfioc_tm(BufferStructure):        # From /usr/include/net/pfvar.h
+class pfioc_tm(Structure):        # From /usr/include/net/pfvar.h
     _fields_ = [("timeout",           c_int),
                 ("seconds",           c_int)]
 
 
-class pf_status(BufferStructure):       # From /usr/include/net/pfvar.h
+class pf_status(Structure):       # From /usr/include/net/pfvar.h
     _fields_ = [("counters",          c_uint64 * PFRES_MAX),
                 ("lcounters",         c_uint64 * LCNT_MAX),
                 ("fcounters",         c_uint64 * FCNT_MAX),
@@ -202,10 +185,10 @@ class pfsync_state(Structure):          # From /usr/include/net/pfvar.h
                 ("min_ttl",           c_uint8),
                 ("set_tos",           c_uint8),
                 ("state_flags",       c_uint16),
-                ("pad",               c_uint8 * 2)]
+                ("set_prio",          c_uint8 * 2)]
 
 
-class pfioc_states(BufferStructure):    # From /usr/include/net/pfvar.h
+class pfioc_states(Structure):    # From /usr/include/net/pfvar.h
     class _ps_u(Union):
         _fields_ = [("ps_buf",        c_void_p),      # caddr_t
                     ("ps_states",     c_void_p)]      # struct pfsync_state *
@@ -222,7 +205,7 @@ class pf_state_cmp(Structure):          # From /usr/include/net/pfvar.h
                 ("pad",               c_uint8 * 3)]
 
 
-class pfioc_state_kill(BufferStructure): # From /usr/include/net/pfvar.h
+class pfioc_state_kill(Structure): # From /usr/include/net/pfvar.h
     _fields_ = [("psk_pfcmp",         pf_state_cmp),
                 ("psk_af",            c_uint8),       # sa_family_t
                 ("psk_proto",         c_int),
@@ -356,30 +339,31 @@ class pf_rule(Structure):               # From /usr/include/net/pfvar.h
                 ("anchor_relative",   c_uint8),
                 ("anchor_wildcard",   c_uint8),
                 ("flush",             c_uint8),
+                ("prio",              c_uint8),
                 ("set_prio",          c_uint8 * 2),
                 ("naf",               c_uint8),       # sa_family_t
                 ("rcvifnot",          c_uint8),
-                ("pad",               c_uint8 * 3),
+                ("pad",               c_uint8 * 2),
                 ("divert",            _divert),
                 ("divert_packet",     _divert)]
 
 
-class pfioc_rule(BufferStructure):      # From /usr/include/net/pfvar.h
+class pfioc_rule(Structure):      # From /usr/include/net/pfvar.h
     _fields_ = [("action",            c_uint32),
                 ("ticket",            c_uint32),
                 ("nr",                c_uint32),
-                ("anchor",            c_char * MAXPATHLEN),
-                ("anchor_call",       c_char * MAXPATHLEN),
+                ("anchor",            c_char * PATH_MAX),
+                ("anchor_call",       c_char * PATH_MAX),
                 ("rule",              pf_rule)]
 
 
 class pfioc_trans_e(Structure):         # From /usr/include/net/pfvar.h
     _fields_ = [("type",              c_int),
-                ("anchor",            c_char * MAXPATHLEN),
+                ("anchor",            c_char * PATH_MAX),
                 ("ticket",            c_uint32)]
 
 
-class pfioc_trans(BufferStructure):     # From /usr/include/net/pfvar.h
+class pfioc_trans(Structure):     # From /usr/include/net/pfvar.h
     _fields_ = [("size",              c_int),
                 ("esize",             c_int),
                 ("array",             c_void_p)]      # struct pfioc_trans_e *
@@ -404,13 +388,13 @@ class pfr_addr(Structure):              # From /usr/include/net/pfvar.h
 
 
 class pfr_table(Structure):             # From /usr/include/net/pfvar.h
-    _fields_ = [("pfrt_anchor",       c_char * MAXPATHLEN),
+    _fields_ = [("pfrt_anchor",       c_char * PATH_MAX),
                 ("pfrt_name",         c_char * PF_TABLE_NAME_SIZE),
                 ("pfrt_flags",        c_uint32),
                 ("pfrt_fback",        c_uint8)]
 
 
-class pfioc_table(BufferStructure):     # From /usr/include/net/pfvar.h
+class pfioc_table(Structure):     # From /usr/include/net/pfvar.h
     _fields_ = [("pfrio_table",       pfr_table),
                 ("pfrio_buffer",      c_void_p),
                 ("pfrio_esize",       c_int),
@@ -457,7 +441,7 @@ class pfi_kif(Structure):               # From /usr/include/net/pfvar.h
                 ("pfik_dynaddrs",     c_void_p * 2)]  # TAILQ_HEAD(,pfi_dynaddr)
 
 
-class pfioc_iface(BufferStructure):     # From /usr/include/net/pfvar.h
+class pfioc_iface(Structure):     # From /usr/include/net/pfvar.h
     _fields_ = [("pfiio_name",        c_char * IFNAMSIZ),
                 ("pfiio_buffer",      c_void_p),
                 ("pfiio_esize",       c_int),
@@ -497,7 +481,7 @@ class pf_queuespec(Structure):          # From /usr/include/net/pfvar.h
                 ("parent_qid",        c_uint32)]
 
 
-class pfioc_qstats(BufferStructure):    # From /usr/include/net/pfvar.h
+class pfioc_qstats(Structure):    # From /usr/include/net/pfvar.h
     _fields_ = [("ticket",            c_uint32),
                 ("nr",                c_uint32),
                 ("queue",             pf_queuespec),
@@ -564,7 +548,7 @@ class queue_stats(Structure):         # From /usr/src/sbin/pfctl/pfctl_queue.c
                 ("prev_packets",      c_uint64)]
 
 
-class ifreq(BufferStructure):           # From /usr/include/net/if.h
+class ifreq(Structure):           # From /usr/include/net/if.h
     class _ifr_ifru(Union):
         class _sockaddr(Structure):     # From /usr/include/sys/socket.h
             _fields_ = [("sa_len",    c_uint8),

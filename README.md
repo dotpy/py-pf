@@ -37,6 +37,6 @@ http://www.kernel-panic.it/software/py-pf/resources.html.
 
 Credits
 -------
-Copyright (c) 2008-2014 Daniele Mazzocchio (danix@kernel-panic.it).
+Copyright (c) 2008-2015 Daniele Mazzocchio (danix@kernel-panic.it).
 
 Licensed under BSD license (see LICENSE.md file).

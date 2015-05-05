@@ -1,12 +1,19 @@
-Nov 06, 2014 -- version 0.1.3
------------------------------
+May 5, 2015 -- version 0.1.4
+----------------------------
+- Updated to OpenBSD 5.7
+- Removed `pf._struct.BufferStructure` that was originally meant to overcome
+  the 1024 bytes limit in `fcntl.ioctl()` and is no longer needed.
+
+
+Nov 6, 2014 -- version 0.1.3
+----------------------------
 - Updated to OpenBSD 5.6
 - Removed the last traces of ALTQ
 - Fixed a little bug in `PFState._to_string()`
 
 
 May 27, 2014 -- version 0.1.2
-----------------------------
+-----------------------------
 - Updated to OpenBSD 5.5
 - OpenBSD 5.5 has a new queueing system; thus all the queue classes
   (`PFAltqCBQ`, `PFAltqHFSC` and `PFAltqPriQ`) and the corresponding stats
@@ -19,7 +26,7 @@ May 27, 2014 -- version 0.1.2
 
 
 Nov 10, 2013 -- version 0.1.1
-----------------------------
+-----------------------------
 - Updated to OpenBSD 5.4
 
 
@@ -39,7 +46,7 @@ Oct 21, 2012 -- version 0.0.9
 - Added filtering capabilities to `PacketFilter.get_ruleset()`: now it's
   possible to retrieve only rules with specific attribute values (e.g.
   `filter.get_ruleset(ifname="em0")`)
-- Added the `set_optimization()` and `get_optiomization()` methods to
+- Added the `set_optimization()` and `get_optimization()` methods to
   `PacketFilter` (thanks Colin!)
 - Fixed a bug in `PFAddr._from_str()` which didn't allow interface groups as
   addresses (thanks Colin!)

@@ -120,15 +120,15 @@ class _PFTrans(object):
 
     def __enter__(self):
         """Start the transaction."""
-        ioctl(self.dev, DIOCXBEGIN, self._pt.asBuffer())
+        ioctl(self.dev, DIOCXBEGIN, self._pt)
         return self
 
     def __exit__(self, type, value, traceback):
         """Commit changes if no exceptions occurred; otherwise, rollback."""
         if type is None:
-            ioctl(self.dev, DIOCXCOMMIT, self._pt.asBuffer())
+            ioctl(self.dev, DIOCXCOMMIT, self._pt)
         else:
-            ioctl(self.dev, DIOCXROLLBACK, self._pt.asBuffer())
+            ioctl(self.dev, DIOCXROLLBACK, self._pt)
 
 
 class PacketFilter(object):
@@ -210,7 +210,7 @@ class PacketFilter(object):
         pl = pfioc_limit(index=limit)
 
         with open(self.dev, 'r') as d:
-            ioctl(d, DIOCGETLIMIT, pl.asBuffer())
+            ioctl(d, DIOCGETLIMIT, pl)
 
         return pl.limit
 
@@ -228,7 +228,7 @@ class PacketFilter(object):
         with open(self.dev, 'w') as d:
             with _PFTrans(d):
                 try:
-                    ioctl(d, DIOCSETLIMIT, pl.asBuffer())
+                    ioctl(d, DIOCSETLIMIT, pl)
                 except IOError, (e, s):
                     if e == EBUSY:
                         raise PFError("Current pool size > {0:d}".format(value))
@@ -248,7 +248,7 @@ class PacketFilter(object):
 
         tm = pfioc_tm(timeout=timeout)
         with open(self.dev, 'r') as d:
-            ioctl(d, DIOCGETTIMEOUT, tm.asBuffer())
+            ioctl(d, DIOCGETTIMEOUT, tm)
 
         return tm.seconds
 
@@ -264,7 +264,7 @@ class PacketFilter(object):
         tm = pfioc_tm(timeout=timeout, seconds=value)
         with open(self.dev, 'w') as d:
             with _PFTrans(d):
-                ioctl(d, DIOCSETTIMEOUT, tm.asBuffer())
+                ioctl(d, DIOCSETTIMEOUT, tm)
 
         return tm.seconds
 
@@ -289,10 +289,10 @@ class PacketFilter(object):
         pi = pfioc_iface(pfiio_name=ifname, pfiio_esize=sizeof(pfi_kif))
 
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCIGETIFACES, pi.asBuffer())
+            ioctl(d, DIOCIGETIFACES, pi)
             buf = (pfi_kif * pi.pfiio_size)()
             pi.pfiio_buffer = addressof(buf)
-            ioctl(d, DIOCIGETIFACES, pi.asBuffer())
+            ioctl(d, DIOCIGETIFACES, pi)
 
         if ifname and len(buf) == 1:
             return PFIface(buf[0])
@@ -304,7 +304,7 @@ class PacketFilter(object):
         pi = pfioc_iface(pfiio_name=ifname, pfiio_flags=flags)
         with open(self.dev, 'w') as d:
             with _PFTrans(d):
-                ioctl(d, DIOCSETIFFLAG, pi.asBuffer())
+                ioctl(d, DIOCSETIFFLAG, pi)
 
     def clear_ifflags(self, ifname, flags=None):
         """Clear the specified user setable 'flags' on the interface 'ifname'.
@@ -317,7 +317,7 @@ class PacketFilter(object):
         pi = pfioc_iface(pfiio_name=ifname, pfiio_flags=flags)
         with open(self.dev, 'w') as d:
             with _PFTrans(d):
-                ioctl(d, DIOCCLRIFFLAG, pi.asBuffer())
+                ioctl(d, DIOCCLRIFFLAG, pi)
 
     def set_status_if(self, ifname=""):
         """Specify the interface for which statistics are accumulated.
@@ -329,7 +329,7 @@ class PacketFilter(object):
         with open(self.dev, 'w') as d:
             with _PFTrans(d):
                 try:
-                    ioctl(d, DIOCSETSTATUSIF, pi.asBuffer())
+                    ioctl(d, DIOCSETSTATUSIF, pi)
                 except IOError, (e, s):
                     if e == EINVAL:
                         raise PFError("Invalid ifname: '{0}'".format(ifname))
@@ -339,7 +339,7 @@ class PacketFilter(object):
         """Return a PFStatus object containing the internal PF statistics."""
         s = pf_status()
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCGETSTATUS, s.asBuffer())
+            ioctl(d, DIOCGETSTATUS, s)
 
         return PFStatus(s)
 
@@ -351,7 +351,7 @@ class PacketFilter(object):
         """
         pi = pfioc_iface(pfiio_name=ifname)
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCCLRSTATUS, pi.asBuffer())
+            ioctl(d, DIOCCLRSTATUS, pi)
 
     def get_states(self):
         """Retrieve Packet Filter's state table entries.
@@ -368,7 +368,7 @@ class PacketFilter(object):
                     ps_states = (pfsync_state * (l / sizeof(pfsync_state)))()
                     ps.ps_buf = addressof(ps_states)
                     ps.ps_len = l
-                ioctl(d, DIOCGETSTATES, ps.asBuffer())
+                ioctl(d, DIOCGETSTATES, ps)
                 if ps.ps_len == 0:
                     return ()
                 if ps.ps_len <= l:
@@ -387,7 +387,7 @@ class PacketFilter(object):
         psk = pfioc_state_kill(psk_ifname=ifname)
 
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCCLRSTATES, psk.asBuffer())
+            ioctl(d, DIOCCLRSTATES, psk)
 
         return psk.psk_killed
 
@@ -407,7 +407,7 @@ class PacketFilter(object):
             psk.psk_dst = dst._to_struct()
 
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCKILLSTATES, psk.asBuffer())
+            ioctl(d, DIOCKILLSTATES, psk)
 
         return psk.psk_killed
 
@@ -459,13 +459,13 @@ class PacketFilter(object):
             pr.action = PF_GET_CLR_CNTR
 
         pr.rule.action = PF_PASS
-        ioctl(dev, DIOCGETRULES, pr.asBuffer())
+        ioctl(dev, DIOCGETRULES, pr)
 
         tables = list(self.get_tables(PFTable(anchor=path)))
         rules = []
         for nr in range(pr.nr):
             pr.nr = nr
-            ioctl(dev, DIOCGETRULE, pr.asBuffer())
+            ioctl(dev, DIOCGETRULE, pr)
             if pr.anchor_call:
                 path = os.path.join(pr.anchor, pr.anchor_call)
                 rs = PFRuleset(pr.anchor_call, pr.rule)
@@ -507,7 +507,7 @@ class PacketFilter(object):
             io.pfrio_buffer = addressof(buf)
             io.pfrio_size = len(addrs)
 
-        ioctl(dev, DIOCRINADEFINE, io.asBuffer())
+        ioctl(dev, DIOCRINADEFINE, io)
 
     def load_ruleset(self, ruleset, path="", *tr_type):
         """Load the given ruleset.
@@ -533,7 +533,7 @@ class PacketFilter(object):
                             if isinstance(r, PFRuleset):
                                 pr.anchor_call = r.name
 
-                            ioctl(d, DIOCADDRULE, pr.asBuffer())
+                            ioctl(d, DIOCADDRULE, pr)
 
                             if isinstance(r, PFRuleset):
                                 self.load_ruleset(r, os.path.join(path, r.name),
@@ -550,7 +550,7 @@ class PacketFilter(object):
         io.pfrio_buffer = addressof(buffer)
 
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCRADDTABLES, io.asBuffer())
+            ioctl(d, DIOCRADDTABLES, io)
 
         for t in filter(lambda t: t.addrs, tables):
             self.add_addrs(t, *t.addrs)
@@ -570,7 +570,7 @@ class PacketFilter(object):
                                        pfrt_anchor=filter.anchor)
 
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCRCLRTABLES, io.asBuffer())
+            ioctl(d, DIOCRCLRTABLES, io)
 
         return io.pfrio_ndel
 
@@ -589,7 +589,7 @@ class PacketFilter(object):
         io.pfrio_buffer = addressof(buffer)
 
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCRDELTABLES, io.asBuffer())
+            ioctl(d, DIOCRDELTABLES, io)
 
         return io.pfrio_ndel
 
@@ -612,7 +612,7 @@ class PacketFilter(object):
                 io.pfrio_buffer = addressof(buffer)
                 io.pfrio_size = buf_size
 
-                ioctl(d, DIOCRGETTABLES, io.asBuffer())
+                ioctl(d, DIOCRGETTABLES, io)
 
                 if io.pfrio_size <= buf_size:
                     break
@@ -655,7 +655,7 @@ class PacketFilter(object):
         io.pfrio_buffer = addressof(buffer)
 
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCRADDADDRS, io.asBuffer())
+            ioctl(d, DIOCRADDADDRS, io)
 
         return io.pfrio_nadd
 
@@ -672,7 +672,7 @@ class PacketFilter(object):
         io = pfioc_table(pfrio_table=table)
 
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCRCLRADDRS, io.asBuffer())
+            ioctl(d, DIOCRCLRADDRS, io)
 
         return io.pfrio_ndel
 
@@ -702,7 +702,7 @@ class PacketFilter(object):
         io.pfrio_buffer = addressof(buffer)
 
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCRDELADDRS, io.asBuffer())
+            ioctl(d, DIOCRDELADDRS, io)
 
         return io.pfrio_ndel
 
@@ -733,7 +733,7 @@ class PacketFilter(object):
         io.pfrio_buffer = addressof(buffer)
 
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCRSETADDRS, io.asBuffer())
+            ioctl(d, DIOCRSETADDRS, io)
 
         return (io.pfrio_ndel, io.pfrio_nadd, io.pfrio_nchange)
 
@@ -756,7 +756,7 @@ class PacketFilter(object):
                 io.pfrio_buffer = addressof(buffer)
                 io.pfrio_size = buf_size
 
-                ioctl(d, DIOCRGETADDRS, io.asBuffer())
+                ioctl(d, DIOCRGETADDRS, io)
 
                 if io.pfrio_size <= buf_size:
                     break
@@ -783,7 +783,7 @@ class PacketFilter(object):
                 io.pfrio_buffer = addressof(buffer)
                 io.pfrio_size = buf_size
 
-                ioctl(d, DIOCRGETTSTATS, io.asBuffer())
+                ioctl(d, DIOCRGETTSTATS, io)
 
                 if io.pfrio_size <= buf_size:
                     break
@@ -811,6 +811,6 @@ class PacketFilter(object):
         io.pfrio_buffer = addressof(buffer)
 
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCRCLRTSTATS, io.asBuffer())
+            ioctl(d, DIOCRCLRTSTATS, io)
 
         return io.pfrio_nadd
