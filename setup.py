@@ -16,8 +16,8 @@ from pf.tests import TestCommand
 
 
 __author__ = "Daniele Mazzocchio <danix@kernel-panic.it>"
-__version__ = "0.1.4"
-__date__    = "May 05, 2015"
+__version__ = "0.1.5"
+__date__    = "Oct 25, 2015"
 
 
 setup(name         = "py-pf",
@@ -25,7 +25,7 @@ setup(name         = "py-pf",
       author       = "Daniele Mazzocchio",
       author_email = "danix@kernel-panic.it",
       url          = "http://www.kernel-panic.it/software/py-pf/",
-      download_url = "http://sourceforge.net/projects/py-pf/",
+      download_url = "https://github.com/dotpy/py-pf/archive/master.zip",
       packages     = ["pf", "pf.tests"],
       cmdclass     = {"test": TestCommand},
       license      = "OSI-Approved :: BSD License",

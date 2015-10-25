@@ -43,7 +43,7 @@ __all__ = ['pfioc_limit',
 
 # Constants
 IFNAMSIZ             = 16               # From /usr/include/net/if.h
-PFRES_MAX            = 16               # From /usr/include/net/pfvar.h
+PFRES_MAX            = 17               # From /usr/include/net/pfvar.h
 LCNT_MAX             = 7                # From /usr/include/net/pfvar.h
 FCNT_MAX             = 3                # From /usr/include/net/pfvar.h
 SCNT_MAX             = 3                # From /usr/include/net/pfvar.h
