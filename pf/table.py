@@ -44,9 +44,11 @@ class PFTableAddr(PFObject):
 
     def _from_string(self, a):
         """Initalize a new instance from a string."""
-        addr_re = "(?P<neg>!)?\s*"                      + \
-                  "(?P<address>(?P<ipv4>[0-9.]+)|"      + \
-                              "(?P<ipv6>[0-9a-f:]+))"   + \
+        ipv4_re = "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"
+        ipv6_re = "[0-9a-f:]+"
+        addr_re = "(?P<neg>!)?\s*"                            + \
+                  "(?P<address>(?P<ipv4>{})|".format(ipv4_re) + \
+                              "(?P<ipv6>{}))".format(ipv6_re) + \
                               "(?:/(?P<mask>\d+))?\s*"
 
         m = re.compile(addr_re).match(a)
