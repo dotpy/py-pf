@@ -256,6 +256,8 @@ class PFAddr(PFObject):
 
     def _from_string(self, a):
         """Initalize a new instance from a string."""
+        ipv4_re = "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"
+        ipv6_re = "[0-9a-f:]+"
         addr_re = "(?P<nort>no-route)|"                                 + \
                   "(?P<urpf>urpf-failed)|"                              + \
                   "(?P<any>any)|"                                       + \
@@ -264,12 +266,12 @@ class PFAddr(PFObject):
                   "(?P<if>\((?P<ifname>[a-z]+[0-9]*)"                   + \
                            "(?P<mod>(:network|:broadcast|:peer|:0)*)\)" + \
                            "(?:/(?P<ifmask>\d+))?)|"                    + \
-                  "(?P<ipv4rg>(?P<ipv4_1>[0-9.]+)\s*-\s*"               + \
-                             "(?P<ipv4_2>[0-9.]+))|"                    + \
-                  "(?P<ipv6rg>(?P<ipv6_1>[0-9a-f:]+)\s*-\s*"            + \
-                             "(?P<ipv6_2>[0-9a-f:]+))|"                 + \
-                  "(?P<ipv4>[0-9.]+)(?:/(?P<mask4>\d+))?|"              + \
-                  "(?P<ipv6>[0-9a-f:]+)(?:/(?P<mask6>\d+))?"
+                  "(?P<ipv4rg>(?P<ipv4_1>{})\s*-\s*".format(ipv4_re)    + \
+                             "(?P<ipv4_2>{}))|".format(ipv4_re)         + \
+                  "(?P<ipv6rg>(?P<ipv6_1>{})\s*-\s*".format(ipv6_re)    + \
+                             "(?P<ipv6_2>{}))|".format(ipv6_re)         + \
+                  "(?P<ipv4>{})(?:/(?P<mask4>\d+))?|".format(ipv4_re)   + \
+                  "(?P<ipv6>{})(?:/(?P<mask6>\d+))?".format(ipv6_re)
 
         m = re.compile(addr_re).match(a)
         if not m:
