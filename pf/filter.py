@@ -560,14 +560,13 @@ class PacketFilter(object):
     def clear_tables(self, filter=None):
         """Clear all tables.
 
-        'filter' is a PFTable object that allows you to specify the attributes
-        of the tables to delete. Return the number of tables deleted.
+        'filter' is a PFTable object that allows you to specify the anchor of
+        the tables to delete. Return the number of tables deleted.
         """
         io = pfioc_table()
 
         if filter is not None:
-            io.pfrio_table = pfr_table(pfrt_name=filter.name,
-                                       pfrt_anchor=filter.anchor)
+            io.pfrio_table = pfr_table(pfrt_anchor=filter.anchor)
 
         with open(self.dev, 'w') as d:
             ioctl(d, DIOCRCLRTABLES, io)
@@ -596,15 +595,14 @@ class PacketFilter(object):
     def get_tables(self, filter=None, buf_size=10):
         """Get the list of all tables.
 
-        'filter' is a PFTable object that allows you to specify the attributes
-        of the tables to retrieve. Return a tuple of PFTable objects containing
+        'filter' is a PFTable object that allows you to specify the anchor of
+        the tables to retrieve. Return a tuple of PFTable objects containing
         the currently-loaded tables.
         """
         io = pfioc_table(pfrio_esize=sizeof(pfr_table))
 
         if filter is not None:
-            io.pfrio_table = pfr_table(pfrt_name=filter.name,
-                                       pfrt_anchor=filter.anchor)
+            io.pfrio_table = pfr_table(pfrt_anchor=filter.anchor)
 
         with open(self.dev, 'w') as d:
             while True:
@@ -767,15 +765,14 @@ class PacketFilter(object):
     def get_tstats(self, filter=None, buf_size=10):
         """Get statistics information for one or more tables.
 
-        'filter' is a PFTable object that allows you to specify the attributes
-        of the tables to retrieve statistics for. Return a tuple of PFTStats
+        'filter' is a PFTable object that allows you to specify the anchor of
+        the tables to retrieve statistics for. Return a tuple of PFTStats
         objects.
         """
         io = pfioc_table(pfrio_esize=sizeof(pfr_tstats))
 
         if filter is not None:
-            io.pfrio_table = pfr_table(pfrt_name=filter.name,
-                                       pfrt_anchor=filter.anchor)
+            io.pfrio_table = pfr_table(pfrt_anchor=filter.anchor)
 
         with open(self.dev, 'w') as d:
             while True:
