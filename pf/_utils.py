@@ -2,12 +2,14 @@
 
 
 import re
+import glob
+import time
+import ctypes
 from socket import *
-from ctypes import addressof
 from fcntl import ioctl
 
 from pf.constants import *
-from pf._struct import ifreq, if_data
+from pf._struct import ifreq, if_data, timeval
 
 
 # Dictionaries for mapping strings to constants
@@ -327,7 +329,7 @@ def getifmtu(ifname):
     SIOCGIFMTU = _IOWR('i', 126, ifreq)
     s = socket(AF_INET, SOCK_DGRAM)
     ifrdat = if_data()
-    ifr = ifreq(ifr_name=ifname, ifru_data=addressof(ifrdat))
+    ifr = ifreq(ifr_name=ifname, ifru_data=ctypes.addressof(ifrdat))
 
     try:
         ioctl(s, SIOCGIFMTU, ifr.asBuffer())
@@ -339,3 +341,21 @@ def getifmtu(ifname):
     speed = ifrdat.ifi_baudrate
 
     return (mtu, speed)
+
+def uptime():
+    """Return system uptime in seconds"""
+    CTL_KERN      = 1          # From /usr/include/sys/sysctl.h
+    KERN_BOOTTIME = 21         # From /usr/include/sys/sysctl.h
+
+    mib = (ctypes.c_int * 2)(CTL_KERN, KERN_BOOTTIME)
+    tv = timeval()
+    size = ctypes.c_size_t(ctypes.sizeof(timeval))
+
+    libc = ctypes.CDLL(glob.glob("/usr/lib/libc.so*")[0], use_errno=True)
+    libc.sysctl.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p,
+			    ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
+    if libc.sysctl(mib, 2, ctypes.addressof(tv),
+		   ctypes.addressof(size), 0, 0) == -1:
+        raise SysError("Call to sysctl() failed")
+
+    return int(time.time()) - tv.tv_sec

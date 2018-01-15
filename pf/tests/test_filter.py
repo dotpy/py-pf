@@ -86,7 +86,7 @@ class TestPacketFilter(unittest.TestCase):
 
     def test_clear_status(self):
         self.pf.clear_status()
-        self.assertEqual(self.pf.get_status().since, int(time.time()))
+        self.assertGreaterEqual(self.pf.get_status().since, pf._utils.uptime())
 
     def __test_clear_states(self):
         self.pf.clear_rules()
@@ -120,7 +120,8 @@ class TestPacketFilter(unittest.TestCase):
         ifname  = self.testif
         parentq = "root_" + ifname
         MB = 10**6
-        queues = [pf.PFQueue(qname=parentq, ifname=ifname),
+        queues = [pf.PFQueue(qname=parentq, ifname=ifname,
+			     flags=pf.PFQS_ROOTCLASS),
                   pf.PFQueue(qname="std", parent=parentq, ifname=ifname,
                              linkshare=pf.ServiceCurve(bandwidth=100*MB)),
                   pf.PFQueue(qname="ssh", parent="std", ifname=ifname,
@@ -131,7 +132,7 @@ class TestPacketFilter(unittest.TestCase):
                              upperlimit=pf.ServiceCurve(bandwidth=25*MB)),
                   pf.PFQueue(qname="http", parent="std", ifname=ifname,
                              linkshare=pf.ServiceCurve(bandwidth=80*MB),
-                             flags=pf.HFSC_DEFAULTCLASS)]
+                             flags=pf.PFQS_DEFAULT)]
         self.pf.clear_rules()
         self.pf.load_queues(*queues)
         self.assertEqual(len(self.pf.get_queues()), len(queues))

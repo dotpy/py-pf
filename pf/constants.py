@@ -290,11 +290,10 @@ PFI_IFLAG_ANY		    = 0x0200
 DEFAULT_PRIORITY        = 1
 DEFAULT_QLIMIT          = 50
 
-# HFSC class flags (from /usr/include/altq/altq_hfsc.h)
-HFSC_RED                = 0x0001
-HFSC_ECN                = 0x0002
-HFSC_RIO                = 0x0004
-HFSC_DEFAULTCLASS       = 0x1000
+# Queue flags (from /usr/include/net/pfvar.h)
+PFQS_FLOWQUEUE          = 0x0001
+PFQS_ROOTCLASS          = 0x0002
+PFQS_DEFAULT            = 0x1000
 
 # ICMP types (from /usr/include/netinet/ip_icmp.h)
 ICMP_ECHO                        = 8

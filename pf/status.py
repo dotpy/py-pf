@@ -10,7 +10,7 @@ from socket import ntohl
 from pf.constants import *
 from pf._struct import pf_status, pfi_kif
 from pf._base import PFObject
-from pf._utils import dbg_levels
+from pf._utils import dbg_levels, uptime
 
 
 __all__ = ['PFStatus',
@@ -28,16 +28,17 @@ class PFStatus(PFObject):
 
     def _from_struct(self, s):
         """Initialize class attributes from a pf_status structure."""
-        self.ifname    = s.ifname
-        self.running   = bool(s.running)
-        self.stateid   = s.stateid
-        self.since     = s.since
-        self.states    = s.states
-        self.src_nodes = s.src_nodes
-        self.debug     = s.debug
-        self.hostid    = ntohl(s.hostid) & 0xffffffff
-        self.reass     = s.reass
-        self.pf_chksum = "0x" + "".join(map("{:02x}".format, s.pf_chksum))
+        self.ifname          = s.ifname
+        self.running         = bool(s.running)
+        self.stateid         = s.stateid
+        self.since           = s.since
+        self.states          = s.states
+        self.states_halfopen = s.states_halfopen
+        self.src_nodes       = s.src_nodes
+        self.debug           = s.debug
+        self.hostid          = ntohl(s.hostid) & 0xffffffff
+        self.reass           = s.reass
+        self.pf_chksum       = "0x" + "".join(map("{:02x}".format, s.pf_chksum))
 
         self.cnt       = {'match':                    s.counters[0],
                           'bad-offset':               s.counters[1],
@@ -53,7 +54,9 @@ class PFStatus(PFObject):
                           'state-insert':             s.counters[11],
                           'state-limit':              s.counters[12],
                           'src-limit':                s.counters[13],
-                          'synproxy':                 s.counters[14]}
+                          'synproxy':                 s.counters[14],
+                          'translate':                s.counters[15],
+                          'no-route':                 s.counters[16]}
 
         self.lcnt      = {'max states per rule':      s.lcounters[0],
                           'max-src-states':           s.lcounters[1],
@@ -88,7 +91,7 @@ class PFStatus(PFObject):
         s = "Status: " + ('Enabled' if self.running else 'Disabled')
 
         if self.since:
-            runtime = int(time.time()) - self.since
+            runtime = uptime() - self.since
             day, sec = divmod(runtime, 60)
             day, min = divmod(day, 60)
             day, hrs = divmod(day, 24)
@@ -115,7 +118,8 @@ class PFStatus(PFObject):
             s += "\n"
 
         s += "{:<27} {:>14} {:>16}\n".format("State Table", "Total", "Rate")
-        s += "  {:<25} {.states:>14d}".format("current entries", self)
+        s += "  {:<25} {.states:>14d}\n".format("current entries", self)
+        s += "  {:<25} {.states_halfopen:>14d}".format("half-open tcp", self)
         for k, v in self.fcnt.iteritems():
             s += "\n  {:<25} {:>14d} ".format(k, v)
             if self.since and runtime:

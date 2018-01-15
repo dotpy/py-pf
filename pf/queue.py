@@ -1,12 +1,13 @@
 """Classes to represent Packet Filter's queueing schedulers and statistics."""
 
+import pf._struct
 from pf._base import PFObject
 from pf.constants import *
-from pf._struct import pf_queue_scspec, pf_queuespec, hfsc_class_stats
 from pf._utils import rate2str
 
 
 __all__ = ["ServiceCurve",
+           "FlowQueue",
            "PFQueue",
            "PFQueueStats"]
 
@@ -14,11 +15,11 @@ __all__ = ["ServiceCurve",
 class ServiceCurve(PFObject):
     """ """
 
-    _struct_type = pf_queue_scspec
+    _struct_type = pf._struct.pf_queue_scspec
 
     def __init__(self, bandwidth, burst=0, time=0):
         """ """
-        if isinstance(bandwidth, pf_queue_scspec):
+        if isinstance(bandwidth, pf._struct.pf_queue_scspec):
             self._from_struct(bandwidth)
         else:
             self.bandwidth = bandwidth
@@ -33,7 +34,7 @@ class ServiceCurve(PFObject):
 
     def _to_struct(self):
         """ """
-        sc = pf_queue_scspec()
+        sc = pf._struct.pf_queue_scspec()
         if (isinstance(self.bandwidth, basestring) and
             self.bandwidth.endswith("%")):
             sc.m2.percent = int(self.bandwidth[:-1])
@@ -65,17 +66,60 @@ class ServiceCurve(PFObject):
         return s
 
 
+class FlowQueue(PFObject):
+    """ """
+
+    _struct_type = pf._struct.pf_queue_fqspec
+
+    def __init__(self, flows, quantum=0, target=0, interval=0):
+        """ """
+        if isinstance(flows, pf._struct.pf_queue_fqspec):
+	    self._from_struct(flows)
+	else:
+	    self.flows    = flows
+	    self.quantum  = quantum
+	    self.target   = target
+	    self.interval = interval
+
+    def _from_struct(self, fq):
+        """ """
+        self.flows    = fq.flows
+        self.quantum  = fq.quantum
+        self.target   = fq.target
+        self.interval = fq.interval
+
+    def _to_struct(self):
+        """ """
+        fq = pf._struct.pf_queue_fqspec()
+        fq.flows    = self.flows
+        fq.quantum  = self.quantum
+        fq.target   = self.target
+        fq.interval = self.interval * 1000000
+        return fq
+
+    def _to_string(self):
+        """ """
+        s = "flows {.flows}".format(self)
+        if self.quantum:
+            s += " quantum {.quantum}".format(self)
+        if self.interval:
+            s += " interval {.interval}".format(self)
+        if self.target:
+            s += " target {}ms".format(self.target / 1000000)
+        return s
+
+
 class PFQueue(PFObject):
     """ """
 
-    _struct_type = pf_queuespec
+    _struct_type = pf._struct.pf_queuespec
 
     def __init__(self, queue=None, **kw):
         """ """
         if isinstance(queue, basestring):
-            queue = pf_queuespec(qname=queue, qlimit=DEFAULT_QLIMIT)
+            queue = pf._struct.pf_queuespec(qname=queue, qlimit=DEFAULT_QLIMIT)
         elif queue is None:
-            queue = pf_queuespec()
+            queue = pf._struct.pf_queuespec()
         super(PFQueue, self).__init__(queue, **kw)
         self.stats = PFQueueStats()
 
@@ -91,10 +135,11 @@ class PFQueue(PFObject):
         self.realtime   = ServiceCurve(q.realtime)
         self.linkshare  = ServiceCurve(q.linkshare)
         self.upperlimit = ServiceCurve(q.upperlimit)
+        self.flowqueue  = FlowQueue(q.flowqueue)
 
     def _to_struct(self):
         """ """
-        q = pf_queuespec()
+        q = pf._struct.pf_queuespec()
         q.qname      = self.qname
         q.parent     = self.parent
         q.ifname     = self.ifname
@@ -105,6 +150,7 @@ class PFQueue(PFObject):
         q.realtime   = self.realtime._to_struct()
         q.linkshare  = self.linkshare._to_struct()
         q.upperlimit = self.upperlimit._to_struct()
+        q.flowqueue  = self.flowqueue._to_struct()
         return q
 
     def _to_string(self):
@@ -112,16 +158,18 @@ class PFQueue(PFObject):
         s = "queue {.qname}".format(self)
         if self.parent and not self.parent.startswith("_"):
             s += " parent {.parent}".format(self)
-        if self.ifname:
+        elif self.ifname:
             s += " on {.ifname}".format(self)
-        if self.flags & HFSC_DEFAULTCLASS:
-            s += " default"
-        if self.linkshare.bandwidth:
+        if self.flags & PFQS_FLOWQUEUE:
+	    s += " {.flowqueue}".format(self)
+	if self.linkshare.bandwidth or self.linkshare.burst:
             s += " bandwidth {}".format(self.linkshare)
         if self.realtime.bandwidth:
             s += ", min {}".format(self.realtime)
         if self.upperlimit.bandwidth:
             s += ", max {}".format(self.upperlimit)
+        if self.flags & PFQS_DEFAULT:
+            s += " default"
         if self.qlimit:
             s += " qlimit {.qlimit}".format(self)
 
@@ -131,12 +179,12 @@ class PFQueue(PFObject):
 class PFQueueStats(PFObject):
     """ """
 
-    _struct_type = hfsc_class_stats
+    _struct_type = pf._struct.hfsc_class_stats
 
     def __init__(self, stats=None):
         """ """
         if stats is None:
-            stats = hfsc_class_stats()
+            stats = pf._struct.hfsc_class_stats()
         super(PFQueueStats, self).__init__(stats)
 
     def _from_struct(self, s):

@@ -5,7 +5,8 @@ from ctypes import *
 from pf.constants import *
 
 
-__all__ = ['pfioc_limit',
+__all__ = ['timeval',
+	   'pfioc_limit',
            'pfioc_tm',
            'pf_status',
            'pf_addr_wrap',
@@ -30,6 +31,7 @@ __all__ = ['pfioc_limit',
            'pfioc_iface',
            'pf_queue_bwspec',
            'pf_queue_scspec',
+           'pf_queue_fqspec',
            'pf_queuespec',
            'pfioc_qstats',
            'pfioc_queue',
@@ -75,9 +77,10 @@ class pf_status(Structure):       # From /usr/include/net/pfvar.h
                 ("pcounters",         c_uint64 * 3 * 2 * 2),
                 ("bcounters",         c_uint64 * 2 * 2),
                 ("stateid",           c_uint64),
-				("since",             c_int64),       # time_t
+                ("since",             c_int64),       # time_t
                 ("running",           c_uint32),
                 ("states",            c_uint32),
+                ("states_halfopen",   c_uint32),
                 ("src_nodes",         c_uint32),
                 ("debug",             c_uint32),
                 ("hostid",            c_uint32),
@@ -345,7 +348,10 @@ class pf_rule(Structure):               # From /usr/include/net/pfvar.h
                 ("rcvifnot",          c_uint8),
                 ("pad",               c_uint8 * 2),
                 ("divert",            _divert),
-                ("divert_packet",     _divert)]
+                ("divert_packet",     _divert),
+                ("gcle",              c_void_p),      # SLIST_ENTRY(pf_rule)
+                ("ruleset",           c_void_p),      # struct pf_ruleset *
+                ("exptime",           c_int64)]       # time_t
 
 
 class pfioc_rule(Structure):      # From /usr/include/net/pfvar.h
@@ -466,6 +472,13 @@ class pf_queue_scspec(Structure):       # From /usr/include/net/pfvar.h
                 ("d",                 c_uint)]
 
 
+class pf_queue_fqspec(Structure):       # From /usr/include/net/pfvar.h
+    _fields_ = [("flows",             c_uint),
+                ("quantum",           c_uint),
+                ("target",            c_uint),
+                ("interval",          c_uint)]
+
+
 class pf_queuespec(Structure):          # From /usr/include/net/pfvar.h
     _fields_ = [("entries",           c_void_p * 2), # TAILQ_ENTRY(pf_queuespec)
                 ("qname",             c_char * PF_QNAME_SIZE),
@@ -474,6 +487,7 @@ class pf_queuespec(Structure):          # From /usr/include/net/pfvar.h
                 ("realtime",          pf_queue_scspec),
                 ("linkshare",         pf_queue_scspec),
                 ("upperlimit",        pf_queue_scspec),
+                ("flowqueue",         pf_queue_fqspec),
                 ("kif",               c_void_p),      # struct pfi_kif *
                 ("flags",             c_uint),
                 ("qlimit",            c_uint),

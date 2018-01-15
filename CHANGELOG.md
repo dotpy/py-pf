@@ -1,3 +1,15 @@
+Jan 15, 2018 -- version 0.1.8
+----------------------------
+- Updated to OpenBSD 6.2 (many thanks to
+  [Nathan Wheeler](https://github.com/nahun) for his contribution)
+- Some little changes were made to the queueing part to integrate flows:
+  - a new `FlowQueue` object was created
+  - `PFQueue` objects have a new `flowqueue` attribute
+- HFSC_* constants have been replaced with PFQS_* constants
+- `PFStatus.since` now contains the number of seconds after machine uptime that
+  Packet Filter was last started or stopped (not anymore since the epoch).
+
+
 Sep 16, 2016 -- version 0.1.7
 -----------------------------
 - Updated to OpenBSD 6.0
