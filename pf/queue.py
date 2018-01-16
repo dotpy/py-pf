@@ -78,8 +78,8 @@ class FlowQueue(PFObject):
 	else:
 	    self.flows    = flows
 	    self.quantum  = quantum
-	    self.target   = target
-	    self.interval = interval
+	    self.target   = target * 1000000
+	    self.interval = interval * 1000000
 
     def _from_struct(self, fq):
         """ """
@@ -94,7 +94,7 @@ class FlowQueue(PFObject):
         fq.flows    = self.flows
         fq.quantum  = self.quantum
         fq.target   = self.target
-        fq.interval = self.interval * 1000000
+        fq.interval = self.interval
         return fq
 
     def _to_string(self):
@@ -103,7 +103,7 @@ class FlowQueue(PFObject):
         if self.quantum:
             s += " quantum {.quantum}".format(self)
         if self.interval:
-            s += " interval {.interval}".format(self)
+            s += " interval {}ms".format(self.interval / 1000000)
         if self.target:
             s += " target {}ms".format(self.target / 1000000)
         return s
