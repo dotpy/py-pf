@@ -79,7 +79,7 @@ DIOCRSETADDRS    = _IOWR('D', 69, pfioc_table)
 DIOCRGETADDRS    = _IOWR('D', 70, pfioc_table)
 #DIOCRGETASTATS   = _IOWR('D', 71, pfioc_table)
 #DIOCRCLRASTATS   = _IOWR('D', 72, pfioc_table)
-#DIOCRTSTADDRS    = _IOWR('D', 73, pfioc_table)
+DIOCRTSTADDRS    = _IOWR('D', 73, pfioc_table)
 #DIOCRSETTFLAGS   = _IOWR('D', 74, pfioc_table)
 DIOCRINADEFINE   = _IOWR('D', 77, pfioc_table)
 #DIOCOSFPFLUSH    = _IO  ('D', 78)
@@ -626,6 +626,36 @@ class PacketFilter(object):
                 tables.append(PFTable(t, *addrs))
 
         return tuple(tables)
+
+    def test_addrs(self, table, *addrs):
+        """Test if one or more addresses match a table.
+
+        'table' can be either a PFTable instance or a string containing the
+        table name; 'addrs' can be either PFTableAddr instances or strings.
+        Return the addresses that match.
+        """
+        if isinstance(table, basestring):
+            table = pfr_table(pfrt_name=table)
+        else:
+            table = pfr_table(pfrt_name=table.name, pfrt_anchor=table.anchor)
+
+        _addrs = []
+        for addr in addrs:
+            if isinstance(addr, PFTableAddr):
+                _addrs.append(addr)
+            else:
+                _addrs.append(PFTableAddr(addr))
+
+        io = pfioc_table(pfrio_table=table, pfrio_esize=sizeof(pfr_addr),
+                         pfrio_size=len(addrs))
+
+        buffer = (pfr_addr * len(addrs))(*[a._to_struct() for a in _addrs])
+        io.pfrio_buffer = addressof(buffer)
+
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCRTSTADDRS, io)
+
+        return tuple([PFTableAddr(a) for a in buffer[:io.pfrio_size] if a.pfra_fback])
 
     def add_addrs(self, table, *addrs):
         """Add one or more addresses to a table.
