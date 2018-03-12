@@ -226,6 +226,12 @@ class TestPacketFilter(unittest.TestCase):
         self.pf.del_tables(table)
         self.assertFalse(self.pf.get_tables())
 
+    def test_test_addrs(self):
+        self.assertEqual(self._add_table(), 1)
+        table = self.pf.get_tables()[0]
+        self.assertTrue(self.pf.test_addrs(table, "10.0.1.10"))
+        self.assertFalse(self.pf.test_addrs(table, "10.0.1.20"))
+
     def test_add_addrs(self):
         self.assertEqual(self._add_table(), 1)
         table = self.pf.get_tables()[0]
