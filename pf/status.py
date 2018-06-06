@@ -31,6 +31,9 @@ class PFStatus(PFObject):
         self.ifname          = s.ifname
         self.running         = bool(s.running)
         self.stateid         = s.stateid
+        self.syncookies_inflight = s.syncookies_inflight
+        self.syncookies_active = s.syncookies_active
+        self.syncookies_mode = s.syncookies_mode
         self.since           = s.since
         self.states          = s.states
         self.states_halfopen = s.states_halfopen
@@ -64,7 +67,10 @@ class PFStatus(PFObject):
                           'max-src-conn':             s.lcounters[3],
                           'max-src-conn-rate':        s.lcounters[4],
                           'overload table insertion': s.lcounters[5],
-                          'overload flush states':    s.lcounters[6]}
+                          'overload flush states':    s.lcounters[6],
+                          'synfloods detected':       s.lcounters[7],
+                          'syncookies sent':          s.lcounters[8],
+                          'syncookies validated':     s.lcounters[9]}
 
         self.fcnt      = {'searches':                 s.fcounters[0],
                           'inserts':                  s.fcounters[1],
