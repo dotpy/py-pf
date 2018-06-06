@@ -23,8 +23,7 @@ PF_AFRT                 = 15
 
 # PF transaction types (from /usr/include/net/pfvar.h)
 PF_TRANS_RULESET        = 0
-PF_TRANS_ALTQ           = 1
-PF_TRANS_TABLE          = 2
+PF_TRANS_TABLE          = 1
 
 # PF rule flags (from /usr/include/net/pfvar.h)
 PFRULE_DROP             = 0x0000
