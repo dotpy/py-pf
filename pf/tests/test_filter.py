@@ -180,13 +180,23 @@ class TestPacketFilter(unittest.TestCase):
                       rdr=pf.PFPool(pf.PF_POOL_RDR, pf.PFAddr("<web_srv>"),
                                     opts=(pf.PF_POOL_ROUNDROBIN|
                                           pf.PF_POOL_STICKYADDR))),
-            # pass in inet proto icmp all icmp-type echoreq
+            # pass out on $ifname inet proto tcp to port 80 \
+            #     divert-packet port 700
+            pf.PFRule(action=pf.PF_PASS,
+                      direction=pf.PF_OUT,
+                      ifname=self.testif,
+                      af=AF_INET,
+                      proto=IPPROTO_TCP,
+                      dst=pf.PFRuleAddr(port=pf.PFPort("www", IPPROTO_TCP)),
+                      divert=pf.PFDivert(pf.PF_DIVERT_PACKET, port=700)),
+            # pass in inet proto icmp all icmp-type echoreq max-pkt-rate 100/10
             pf.PFRule(action=pf.PF_PASS,
                       direction=pf.PF_IN,
                       af=AF_INET,
                       proto=IPPROTO_ICMP,
                       type=pf.ICMP_ECHO+1,
-                      keep_state=pf.PF_STATE_NORMAL)]
+                      keep_state=pf.PF_STATE_NORMAL,
+                      pktrate=pf.PFThreshold(100, 10))]
 
         rules[2].append(
             pf.PFTable("spammers", flags=pf.PFR_TFLAG_PERSIST),
@@ -209,6 +219,21 @@ class TestPacketFilter(unittest.TestCase):
         rs.append(*rules)
         self.pf.load_ruleset(rs)
         self.assertEqual(len(self.pf.get_ruleset().rules), len(rules))
+
+    def test_set_syncookies(self):
+        modes = (pf.PF_SYNCOOKIES_NEVER, pf.PF_SYNCOOKIES_ALWAYS)
+        # As far as I know, there's no way to retrieve the current syncookies
+        # mode from the system.
+        # So I assume that if no excpetion was raised, everything is OK.
+        for mode in modes:
+            self.pf.set_syncookies(mode)
+
+    def test_set_synflood_watermarks(self):
+        hiwat, lowat = 2000, 1000
+        _hiwat, _lowat = self.pf.get_synflood_watermarks()
+        self.pf.set_synflood_watermarks(hiwat, lowat)
+        self.assertEqual(self.pf.get_synflood_watermarks(), (hiwat, lowat))
+        self.pf.set_synflood_watermarks(_hiwat, _lowat)
 
     def test_add_tables(self):
         tblname = "test_table"

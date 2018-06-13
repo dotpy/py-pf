@@ -23,7 +23,7 @@ PF_AFRT                 = 15
 
 # PF transaction types (from /usr/include/net/pfvar.h)
 PF_TRANS_RULESET        = 0
-PF_TRANS_TABLE          = 1
+PF_TRANS_TABLE          = 2
 
 # PF rule flags (from /usr/include/net/pfvar.h)
 PFRULE_DROP             = 0x0000
@@ -121,6 +121,22 @@ IPTOS_RELIABILITY       = 0x04
 # NAT ports range (from /usr/src/sbin/pfctl/pfctl_parser.h)
 PF_NAT_PROXY_PORT_LOW   = 50001
 PF_NAT_PROXY_PORT_HIGH  = 65535
+
+# Thresholds for syncookies (from /usr/include/net/pfvar.h)
+PF_THRESHOLD_MULT       = 1000
+PF_THRESHOLD_MAX        = 0xffffffff / PF_THRESHOLD_MULT
+
+# Divert types (from /usr/include/net/pfvar.h)
+PF_DIVERT_NONE          = 0
+PF_DIVERT_TO            = 1
+PF_DIVERT_REPLY         = 2
+PF_DIVERT_PACKET        = 3
+
+# Syncookies (from /usr/include/net/pfvar.h)
+PF_SYNCOOKIES_NEVER	= 0
+PF_SYNCOOKIES_ALWAYS	= 1
+PF_SYNCOOKIES_ADAPTIVE	= 2
+PF_SYNCOOKIES_MODE_MAX	= PF_SYNCOOKIES_ADAPTIVE
 
 # Pool IDs (from /usr/src/sbin/pfctl/pfctl_parser.c)
 PF_POOL_ROUTE           = 0
@@ -293,6 +309,9 @@ DEFAULT_QLIMIT          = 50
 PFQS_FLOWQUEUE          = 0x0001
 PFQS_ROOTCLASS          = 0x0002
 PFQS_DEFAULT            = 0x1000
+
+# Match "prio 0" packets
+PF_PRIO_ZERO            = 0xff
 
 # ICMP types (from /usr/include/netinet/ip_icmp.h)
 ICMP_ECHO                        = 8

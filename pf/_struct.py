@@ -19,6 +19,8 @@ __all__ = ['timeval',
            'pf_pool',
            'pf_rule_uid',
            'pf_rule_gid',
+           'pf_threshold',
+           'divert',
            'pf_rule',
            'pfioc_rule',
            'pfioc_trans_e',
@@ -40,13 +42,14 @@ __all__ = ['timeval',
            'hfsc_class_stats',
            'queue_stats',
            'ifreq',
-           'if_data']
+           'if_data',
+           'pfioc_synflwats']
 
 
 # Constants
 IFNAMSIZ             = 16               # From /usr/include/net/if.h
 PFRES_MAX            = 17               # From /usr/include/net/pfvar.h
-LCNT_MAX             = 10                # From /usr/include/net/pfvar.h
+LCNT_MAX             = 10               # From /usr/include/net/pfvar.h
 FCNT_MAX             = 3                # From /usr/include/net/pfvar.h
 SCNT_MAX             = 3                # From /usr/include/net/pfvar.h
 PF_MD5_DIGEST_LENGTH = 16               # From /usr/include/net/pfvar.h
@@ -77,7 +80,7 @@ class pf_status(Structure):       # From /usr/include/net/pfvar.h
                 ("pcounters",         c_uint64 * 3 * 2 * 2),
                 ("bcounters",         c_uint64 * 2 * 2),
                 ("stateid",           c_uint64),
-                ("syncookies_inflight",c_uint64 * 2),
+                ("syncookies_inflight", c_uint64 * 2),
                 ("since",             c_int64),       # time_t
                 ("running",           c_uint32),
                 ("states",            c_uint32),
@@ -264,14 +267,23 @@ class pf_rule_gid(Structure):           # From /usr/include/net/pfvar.h
                 ("op",                c_uint8)]
 
 
+class pf_threshold(Structure):          # From /usr/include/net/pfvar.h
+    _fields_ = [("limit",             c_uint32),
+                ("seconds",           c_uint32),
+                ("count",             c_uint32),
+                ("last",              c_uint32)]
+
+
+class divert(Structure):                # From /usr/include/net/pfvar.h
+    _fields_ = [("addr",              pf_addr),
+                ("port",              c_uint16),
+                ("type",              c_uint8)]
+
+
 class pf_rule(Structure):               # From /usr/include/net/pfvar.h
     class _conn_rate(Structure):
         _fields_ = [("limit",         c_uint32),
                     ("seconds",       c_uint32)]
-
-    class _divert(Structure):
-        _fields_ = [("addr",          pf_addr),
-                    ("port",          c_uint16)]
 
     _fields_ = [("src",               pf_rule_addr),
                 ("dst",               pf_rule_addr),
@@ -288,6 +300,7 @@ class pf_rule(Structure):               # From /usr/include/net/pfvar.h
                 ("nat",               pf_pool),
                 ("rdr",               pf_pool),
                 ("route",             pf_pool),
+                ("pktrate",           pf_threshold),
                 ("evaluations",       c_uint64),
                 ("packets",           c_uint64 * 2),
                 ("bytes",             c_uint64 * 2),
@@ -351,8 +364,7 @@ class pf_rule(Structure):               # From /usr/include/net/pfvar.h
                 ("naf",               c_uint8),       # sa_family_t
                 ("rcvifnot",          c_uint8),
                 ("pad",               c_uint8 * 2),
-                ("divert",            _divert),
-                ("divert_packet",     _divert),
+                ("divert",            divert),
                 ("gcle",              c_void_p),      # SLIST_ENTRY(pf_rule)
                 ("ruleset",           c_void_p),      # struct pf_ruleset *
                 ("exptime",           c_int64)]       # time_t
@@ -617,3 +629,8 @@ class if_data(Structure):               # From /usr/include/net/if.h
                 ("ifi_capabilities", c_uint32),
                 ("ifi_lastchange",   timeval),
                 ("ifi_mclpool",      _mclpool * _MCLPOOLS)]
+
+
+class pfioc_synflwats(Structure):      # From /usr/include/net/pfvar.h
+    _fields_ = [("hiwat",            c_uint32),
+                ("lowat",            c_uint32)]

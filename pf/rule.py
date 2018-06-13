@@ -20,6 +20,8 @@ __all__ = ['PFUid',
            'PFAddr',
            'PFRuleAddr',
            'PFPool',
+           'PFDivert',
+           'PFThreshold',
            'PFRule',
            'PFRuleset']
 
@@ -492,7 +494,7 @@ class PFPool(PFObject):
             p = pf_pool(addr=pool._to_struct())
             if self.id == PF_POOL_NAT:
                 p.proxy_port = (PF_NAT_PROXY_PORT_LOW, PF_NAT_PROXY_PORT_HIGH)
-        elif isinstance(pool, pf_pool):
+        elif isinstance(pool, self._struct_type):
             self._af = kw.pop("af", AF_UNSPEC)
             p = pool
 
@@ -575,6 +577,96 @@ class PFPool(PFObject):
         return s
 
 
+class PFDivert(PFObject):
+    """Class representing a divert socket."""
+
+    _struct_type = divert
+
+    def __init__(self, type=PF_DIVERT_NONE, addr=None, port=None, af=AF_UNSPEC):
+        """Check arguments and initialize instance attributes."""
+        self.af = af
+        if isinstance(type, self._struct_type):
+            self._from_struct(type)
+        else:
+            self.type = type
+            self.addr = addr
+            self.port = port
+            if addr and (af == AF_UNSPEC):
+                if is_IPaddr(addr):
+                    self.af = AF_INET
+                elif is_IP6addr(addr):
+                    self.af = AF_INET6
+
+    def _from_struct(self, d):
+        """ Initalize a new instance from a divert structure."""
+        self.type = d.type
+        self.addr = None
+        self.port = None
+
+        if self.type == PF_DIVERT_TO:
+            self.addr = inet_ntop(self.af, string_at(addressof(d.addr), l))
+            self.port = ntohs(d.port)
+        elif self.type == PF_DIVERT_PACKET:
+            self.port = ntohs(d.port)
+
+    def _to_struct(self):
+        """Convert a PFDivert object to a divert structure."""
+        d = divert(type=self.type)
+        if self.type in (PF_DIVERT_TO, PF_DIVERT_PACKET):
+            d.port = htons(self.port)
+        if self.type == PF_DIVERT_TO:
+            d.addr = inet_pton(self.af, self.addr)
+
+        return d
+
+    def _to_string(self):
+        """Return a string representation of the object."""
+        if self.type == PF_DIVERT_NONE:
+            return ""
+        if self.type == PF_DIVERT_TO:
+            return "divert-to {.addr} port {.port}".format(self)
+        elif self.type == PF_DIVERT_REPLY:
+            return "divert-reply"
+        elif self.type == PF_DIVERT_PACKET:
+            return "divert-packet port {.port}".format(self)
+        else:
+            return "divert ???"
+
+
+class PFThreshold(PFObject):
+    """Measure the rate of packets matching the rule and states created by it"""
+
+    _struct_type = pf_threshold
+
+    def __init__(self, limit, seconds=0):
+        """Check arguments and initialize instance attributes"""
+        if not isinstance(limit, self._struct_type):
+            limit = pf_threshold(limit=limit, seconds=seconds)
+        self._from_struct(limit)
+
+    def _from_struct(self, threshold):
+        """Initalize a new instance from a pf_threshold structure"""
+        self.limit   = threshold.limit
+        self.seconds = threshold.seconds
+        self.count   = threshold.count
+        self.last    = threshold.last
+
+    def _to_struct(self):
+        """Convert a PFThreshold object to a pf_threshold structure."""
+        threshold = pf_threshold()
+
+        threshold.limit   = self.limit
+        threshold.seconds = self.seconds
+        threshold.count   = self.count
+        threshold.last    = self.last
+
+        return threshold
+
+    def _to_string(self):
+        """Return a string representation of the object."""
+        return "max-pkt-rate {.limit}/{.seconds}".format(self)
+
+
 class PFRule(PFObject):
     """Class representing a Packet Filter rule."""
 
@@ -611,6 +703,7 @@ class PFRule(PFObject):
         if self.route.addr._is_any():
             self.route = PFPool(PF_POOL_ROUTE, PFAddr(type=PF_ADDR_NONE))
 
+        self.pktrate           = PFThreshold(r.pktrate)
         self.evaluations       = r.evaluations
         self.packets           = tuple(r.packets)
         self.bytes             = tuple(r.bytes)
@@ -668,22 +761,10 @@ class PFRule(PFObject):
         self.anchor_relative   = r.anchor_relative
         self.anchor_wildcard   = r.anchor_wildcard
         self.flush             = r.flush
+        self.prio              = r.prio
         self.set_prio          = tuple(r.set_prio)
         self.naf               = r.naf
-        self.divert            = (None, None)
-        self.divert_packet     = (None, None)
-        if r.divert.port:
-            if azero(r.divert.addr.v6):
-                addr = None
-            else:
-                l = {AF_INET: 4, AF_INET6: 16}[self.af]
-                addr = PFAddr(inet_ntop(r.af,
-                                        string_at(addressof(r.divert.addr), l)))
-            self.divert = (addr, PFPort(ntohs(r.divert.port)))
-        if r.divert_packet.port:
-            self.divert_packet = PFPort(ntohs(r.divert_packet.port))
-        else:
-            self.divert_packet = None
+        self.divert            = PFDivert(r.divert, af=self.af)
 
     def _to_struct(self):
         """Convert a PFRule object to a pf_rule structure."""
@@ -704,6 +785,7 @@ class PFRule(PFObject):
         r.nat               = self.nat._to_struct()
         r.rdr               = self.rdr._to_struct()
         r.route             = self.route._to_struct()
+        r.pktrate           = self.pktrate._to_struct()
         r.evaluations       = self.evaluations
         r.packets           = self.packets
         r.bytes             = self.bytes
@@ -758,14 +840,10 @@ class PFRule(PFObject):
         r.anchor_relative   = self.anchor_relative
         r.anchor_wildcard   = self.anchor_wildcard
         r.flush             = self.flush
+        r.prio              = self.prio
         r.set_prio[:]       = self.set_prio
         r.naf               = self.naf
-        if self.divert[0]:
-            r.divert.addr   = self.divert[0]._to_struct().v.a.addr
-        if self.divert[1]:
-            r.divert.port   = htons(self.divert[1].num[0])
-        if self.divert_packet:
-            r.divert_packet.port = htons(self.divert_packet.num[0])
+        r.divert            = self.divert._to_struct()
 
         return r
 
@@ -890,6 +968,11 @@ class PFRule(PFObject):
 
         if self.tos:
             s += " tos {.tos:#04x}".format(self)
+        if self.prio:
+            prio = 0 if (self.prio == PF_PRIO_ZERO) else self.prio
+            s += " prio {}".format(prio)
+        if self.pktrate.limit:
+            s += " {.pktrate}".format(self)
 
         if self.scrub_flags & PFSTATE_SETMASK:
             opts = []
@@ -1001,14 +1084,8 @@ class PFRule(PFObject):
         if self.rtableid != -1:
             s += " rtable {.rtableid}".format(self)
 
-        if self.divert[1]:
-            if not self.divert[0]:
-                s += " divert-reply"
-            else:
-                s += " divert-to {} port {}".format(*self.divert)
-
-        if self.divert_packet:
-            s += " divert-packet port {.divert_packet}".format(self)
+        if self.divert.type != PF_DIVERT_NONE:
+            s += " {.divert}".format(self)
 
         if not isinstance(self, PFRuleset):
             if self.nat.addr.type != PF_ADDR_NONE:

@@ -21,7 +21,7 @@ from pf.state import PFState
 from pf.status import PFStatus, PFIface
 from pf.table import PFTableAddr, PFTable, PFTStats
 from pf.rule import PFRule, PFRuleset, pf_timeouts
-from pf._utils import dbg_levels, pf_limits, pf_timeouts, pf_hints
+from pf._utils import *
 
 
 __all__ = ['PacketFilter']
@@ -100,6 +100,10 @@ DIOCADDQUEUE	 = _IOWR('D', 93, pfioc_queue)
 DIOCGETQUEUES	 = _IOWR('D', 94, pfioc_queue)
 DIOCGETQUEUE	 = _IOWR('D', 95, pfioc_queue)
 DIOCGETQSTATS	 = _IOWR('D', 96, pfioc_qstats)
+DIOCSETSYNFLWATS  = _IOWR('D', 97, pfioc_synflwats)
+DIOCSETSYNCOOKIES = _IOWR('D', 98, c_uint8)
+DIOCGETSYNFLWATS  = _IOWR('D', 99, pfioc_synflwats)
+
 
 
 class _PFTrans(object):
@@ -841,3 +845,22 @@ class PacketFilter(object):
             ioctl(d, DIOCRCLRTSTATS, io)
 
         return io.pfrio_nadd
+
+    def get_synflood_watermarks(self):
+        """Return the start and end values for adaptive syncookies watermarks"""
+        ps = pfioc_synflwats()
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCGETSYNFLWATS, ps)
+
+        return (ps.hiwat, ps.lowat)
+
+    def set_synflood_watermarks(self, start=2500, end=1500):
+        """Set the start and end values for adaptive syncookies watermarks"""
+        ps = pfioc_synflwats(hiwat=start, lowat=end)
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCSETSYNFLWATS, ps)
+
+    def set_syncookies(self, mode):
+        """Set the syncookies mode (never, always or adaptive)"""
+        with open(self.dev, 'w') as d:
+            ioctl(d, DIOCSETSYNCOOKIES, c_uint8(mode))

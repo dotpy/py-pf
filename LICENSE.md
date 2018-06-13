@@ -1,4 +1,4 @@
-Copyright (c) 2008-2018, Daniele Mazzocchio  
+Copyright (c) 2008-2018, Daniele Mazzocchio
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification,

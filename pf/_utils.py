@@ -307,6 +307,21 @@ def nmtoc(netmask, af):
 
     return cidr
 
+def is_IPaddr(addr):
+    """Return True if addr is a valid IPv4 address"""
+    return _is_valid_addr(AF_INET, addr)
+
+def is_IP6addr(addr):
+    """Return True if addr is a valid IPv6 address"""
+    return _is_valid_addr(AF_INET6, addr)
+
+def _is_valid_addr(af, addr):
+    """Return True is addr is a valid address in the address family specified"""
+    try:
+        socket.inet_pton(af, addr)
+    except socket.error:
+        return False
+    return True
 
 def rate2str(bw):
     """Return the string representation of the network speed rate."""
@@ -321,7 +336,6 @@ def rate2str(bw):
         return "{:.2f}{}".format(bw, units[i])
     else:
         return "{}{}".format(int(bw), units[i])
-
 
 def getifmtu(ifname):
     """Quick hack to get MTU and speed for a specified interface."""

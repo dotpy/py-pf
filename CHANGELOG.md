@@ -1,5 +1,17 @@
+Jun 13, 2018 -- version 0.1.9
+-----------------------------
+- Updated to OpenBSD 6.3 (many thanks to
+  [Jasper Lievisse Adriaanse](https://github.com/jasperla) for his contribution)
+- Support for syncookies was added to the `PacketFilter` class through 3 new
+  methods:
+  - `PacketFilter.get_synflood_watermarks()`
+  - `PacketFilter.set_synflood_watermarks()`
+  - `PacketFilter.set_syncookies()`
+- Added a new `PFThreshold` class for `max-pkt-rate` thresholds
+- Added a new `PFDivert` class to represent divert sockets
+
 Jan 15, 2018 -- version 0.1.8
-----------------------------
+-----------------------------
 - Updated to OpenBSD 6.2 (many thanks to
   [Nathan Wheeler](https://github.com/nahun) for his contribution)
 - Some little changes were made to the queueing part to integrate flows:
