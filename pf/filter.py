@@ -862,5 +862,8 @@ class PacketFilter(object):
 
     def set_syncookies(self, mode):
         """Set the syncookies mode (never, always or adaptive)"""
+        if mode in pf_syncookies_modes:
+            mode = pf_syncookies_modes[mode]
+
         with open(self.dev, 'w') as d:
             ioctl(d, DIOCSETSYNCOOKIES, c_uint8(mode))

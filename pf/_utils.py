@@ -80,6 +80,13 @@ pf_timeouts = {
     "src.track":       PFTM_SRC_NODE
 }
 
+# Syncookies modes
+pf_syncookies_modes = {
+    "never":    PF_SYNCOOKIES_NEVER,
+    "always":   PF_SYNCOOKIES_ALWAYS,
+    "adaptive": PF_SYNCOOKIES_ADAPTIVE
+}
+
 # PF Optimization Hints
 pf_hint_normal = {
     "tcp.first": 2 * 60,

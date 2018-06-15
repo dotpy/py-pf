@@ -221,10 +221,10 @@ class TestPacketFilter(unittest.TestCase):
         self.assertEqual(len(self.pf.get_ruleset().rules), len(rules))
 
     def test_set_syncookies(self):
-        modes = (pf.PF_SYNCOOKIES_NEVER, pf.PF_SYNCOOKIES_ALWAYS)
+        modes = (pf.PF_SYNCOOKIES_NEVER, "always")
         # As far as I know, there's no way to retrieve the current syncookies
         # mode from the system.
-        # So I assume that if no excpetion was raised, everything is OK.
+        # So I assume that if no exception was raised, everything is OK.
         for mode in modes:
             self.pf.set_syncookies(mode)
 

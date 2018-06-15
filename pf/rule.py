@@ -638,7 +638,7 @@ class PFThreshold(PFObject):
 
     _struct_type = pf_threshold
 
-    def __init__(self, limit, seconds):
+    def __init__(self, limit, seconds=0):
         """Check arguments and initialize instance attributes"""
         if not isinstance(limit, self._struct_type):
             limit = pf_threshold(limit=limit, seconds=seconds)
