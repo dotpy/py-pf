@@ -9,6 +9,7 @@ from socket import *
 from fcntl import ioctl
 
 from pf.constants import *
+from pf.exceptions import PFError
 from pf._struct import ifreq, if_data, timeval
 
 
@@ -325,24 +326,24 @@ def is_IP6addr(addr):
 def _is_valid_addr(af, addr):
     """Return True is addr is a valid address in the address family specified"""
     try:
-        socket.inet_pton(af, addr)
-    except socket.error:
+        inet_pton(af, addr)
+    except error:    # socket.error
         return False
     return True
 
 def rate2str(bw):
     """Return the string representation of the network speed rate."""
     units = [" ", "K", "M", "G"]
-    for i in range(len(units)):
+    for unit in units:
         if bw >= 1000:
             bw /= 1000.0
         else:
             break
 
     if int(bw * 100 % 100):
-        return "{:.2f}{}".format(bw, units[i])
+        return "{:.2f}{}".format(bw, unit)
     else:
-        return "{}{}".format(int(bw), units[i])
+        return "{}{}".format(int(bw), unit)
 
 def getifmtu(ifname):
     """Quick hack to get MTU and speed for a specified interface."""
@@ -374,9 +375,9 @@ def uptime():
 
     libc = ctypes.CDLL(glob.glob("/usr/lib/libc.so*")[0], use_errno=True)
     libc.sysctl.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_void_p,
-			    ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
+                            ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
     if libc.sysctl(mib, 2, ctypes.addressof(tv),
-		   ctypes.addressof(size), 0, 0) == -1:
-        raise SysError("Call to sysctl() failed")
+                   ctypes.addressof(size), 0, 0) == -1:
+        raise PFError("Call to sysctl() failed")
 
     return int(time.time()) - tv.tv_sec

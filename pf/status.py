@@ -190,13 +190,13 @@ class PFIface(PFObject):
 
     def _to_string(self):
         """Return a string containing the description of the interface."""
-        if (self.flags & PFI_IFLAG_SKIP):
+        if self.flags & PFI_IFLAG_SKIP:
             s = "{.name} (skip)\n".format(self)
         else:
             s = "{.name}\n".format(self)
         s += "\tCleared:     {}\n".format(time.ctime(self.cleared))
         s += "\tReferences:  [ States:  {.states:<18d}".format(self)
-        s+= " Rules: {.rules:<18d} ]\n".format(self)
+        s += " Rules: {.rules:<18d} ]\n".format(self)
 
         pfik_ops = ("Pass:", "Block:")
         for o, p, b in zip(pfik_ops, self.packets["in"], self.bytes["in"]):

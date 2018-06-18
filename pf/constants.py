@@ -1,7 +1,5 @@
 """Export constants shared by all classes of the module."""
 
-from sys import maxint
-
 
 # Actions (from /usr/include/net/pfvar.h)
 PF_PASS                 = 0

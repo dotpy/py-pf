@@ -16,7 +16,7 @@ class PFObject(object):
             self._from_struct(obj)
         elif isinstance(obj, basestring):
             self._from_string(obj)
-        
+
         self._from_kwargs(**kwargs)
 
     def _from_struct(self, struct):
@@ -34,7 +34,7 @@ class PFObject(object):
 
     def _to_struct(self):
         raise NotImplementedError()
-    
+
     def _to_string(self):
         raise NotImplementedError()
 

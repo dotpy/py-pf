@@ -54,7 +54,7 @@ class PFStateKey(PFObject):
     def _from_struct(self, k):
         """Initialize class attributes from a pfsync_state_key structure."""
         a = (pf_addr_wrap(), pf_addr_wrap())
-        
+
 
         a[0].v.a.addr, a[1].v.a.addr = k.addr
         mask = '\xff' * {AF_INET: 4, AF_INET6: 16}[self.af]
@@ -97,7 +97,7 @@ class PFState(PFObject):
 
         self.creatorid       = ntohl(s.creatorid) & 0xffffffff
         self.rtableid        = s.rtableid
-        selfmax_mss          = s.max_mss
+        self.max_mss         = s.max_mss
         self.af              = s.af
         self.proto           = s.proto
         self.direction       = s.direction
@@ -157,7 +157,7 @@ class PFState(PFObject):
             if (src.state <= TCPS_TIME_WAIT and
                 dst.state <= TCPS_TIME_WAIT):
                 s += "{}:{}".format(tcpstates[src.state],
-                                      tcpstates[dst.state])
+                                    tcpstates[dst.state])
             elif (src.state == PF_TCPS_PROXY_SRC or
                   dst.state == PF_TCPS_PROXY_SRC):
                 s += "PROXY:SRC"

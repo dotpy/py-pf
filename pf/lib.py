@@ -3,7 +3,7 @@
 import socket
 
 from pf.rule import PFRule, PFPool, PFPort
-from pf._utils import icmp_codes, icmp6_codes
+from pf._utils import icmp_codes, icmp6_codes, icmp_types, icmp6_types
 from pf.constants import *
 
 
@@ -46,7 +46,7 @@ class Rule(PFRule):
 
         # Convert ICMP type string to constant
         if kw.has_key("type") and isinstance(kw["type"], basestring):
-            types = icmp6_types if (kw["af"]==socket.AF_INET6) else icmp_types
+            types = icmp6_types if (kw["af"] == socket.AF_INET6) else icmp_types
             for key, value in types.iteritems():
                 if value == kw["type"]:
                     kw["type"] = key + 1
@@ -56,7 +56,7 @@ class Rule(PFRule):
 
         # Convert ICMP code string to constants
         if kw.has_key("code") and isinstance(kw["code"], basestring):
-            codes = icmp6_codes if (kw["af"]==socket.AF_INET6) else icmp_codes
+            codes = icmp6_codes if (kw["af"] == socket.AF_INET6) else icmp_codes
             for key, value in codes.iteritems():
                 if value == kw["code"]:
                     kw["type"], kw["code"] = key[0]+1, key[1]+1
@@ -133,14 +133,14 @@ class MatchOutRule(MatchRule):
 
 # Pools
 class NATPool(PFPool):
-    """ """
+    """NAT address pool"""
 
     def __init__(self, pool, **kw):
         super(NATPool, self).__init__(PF_POOL_NAT, pool, **kw)
 
 
 class RDRPool(PFPool):
-    """ """
+    """Redirect adress pool"""
 
     def __init__(self, pool, **kw):
         super(RDRPool, self).__init__(PF_POOL_RDR, pool, **kw)
@@ -148,14 +148,14 @@ class RDRPool(PFPool):
 
 # Ports
 class TCPPort(PFPort):
-    """ """
+    """TCP network port"""
 
     def __init__(self, num, op=PF_OP_EQ):
         super(TCPPort, self).__init__(num, socket.IPPROTO_TCP, op)
 
 
 class UDPPort(PFPort):
-    """ """
+    """UDP network port"""
 
     def __init__(self, num, op=PF_OP_EQ):
         super(UDPPort, self).__init__(num, socket.IPPROTO_UDP, op)
