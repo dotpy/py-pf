@@ -121,7 +121,8 @@ class TestPacketFilter(unittest.TestCase):
         parentq = "root_" + ifname
         MB = 10**6
         queues = [pf.PFQueue(qname=parentq, ifname=ifname,
-			     flags=pf.PFQS_ROOTCLASS),
+                             flags=pf.PFQS_ROOTCLASS,
+                             linkshare=pf.ServiceCurve(bandwidth=100*MB)),
                   pf.PFQueue(qname="std", parent=parentq, ifname=ifname,
                              linkshare=pf.ServiceCurve(bandwidth=100*MB)),
                   pf.PFQueue(qname="ssh", parent="std", ifname=ifname,

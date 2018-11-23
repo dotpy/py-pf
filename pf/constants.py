@@ -21,7 +21,7 @@ PF_AFRT                 = 15
 
 # PF transaction types (from /usr/include/net/pfvar.h)
 PF_TRANS_RULESET        = 0
-PF_TRANS_TABLE          = 2
+PF_TRANS_TABLE          = 1
 
 # PF rule flags (from /usr/include/net/pfvar.h)
 PFRULE_DROP             = 0x0000
@@ -32,6 +32,7 @@ PFRULE_RETURN           = 0x0008
 PFRULE_NOSYNC           = 0x0010
 PFRULE_SRCTRACK         = 0x0020
 PFRULE_RULESRCTRACK     = 0x0040
+PFRULE_SETDELAY         = 0x0080
 
 # PF rule flags (from /usr/include/net/pfvar.h)
 PFRULE_IFBOUND          = 0x00010000
@@ -175,7 +176,8 @@ PF_LIMIT_SRC_NODES      = 1
 PF_LIMIT_FRAGS          = 2
 PF_LIMIT_TABLES         = 3
 PF_LIMIT_TABLE_ENTRIES  = 4
-PF_LIMIT_MAX            = 5
+PF_LIMIT_PKTDELAY_PKTS  = 5
+PF_LIMIT_MAX            = 6
 
 # Timeouts (from /usr/include/net/pfvar.h)
 PFTM_TCP_FIRST_PACKET   = 0

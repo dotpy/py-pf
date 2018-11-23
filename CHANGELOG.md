@@ -1,3 +1,8 @@
+Nov 23, 2018 -- version 0.2.0
+-----------------------------
+- Updated to OpenBSD 6.4
+
+
 Jun 13, 2018 -- version 0.1.9
 -----------------------------
 - Updated to OpenBSD 6.3 (many thanks to
@@ -9,6 +14,7 @@ Jun 13, 2018 -- version 0.1.9
   - `PacketFilter.set_syncookies()`
 - Added a new `PFThreshold` class for `max-pkt-rate` thresholds
 - Added a new `PFDivert` class to represent divert sockets
+
 
 Jan 15, 2018 -- version 0.1.8
 -----------------------------

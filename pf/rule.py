@@ -733,6 +733,7 @@ class PFRule(PFObject):
         self.tag               = r.tag
         self.match_tag         = r.match_tag
         self.scrub_flags       = r.scrub_flags
+        self.delay             = r.delay
         self.uid               = PFUid(r.uid)
         self.gid               = PFGid(r.gid)
         self.rule_flag         = r.rule_flag
@@ -814,6 +815,8 @@ class PFRule(PFObject):
         r.max_mss           = self.max_mss
         r.tag               = self.tag
         r.match_tag         = self.match_tag
+        r.scrub_flags       = self.scrub_flags
+        r.delay             = self.delay
         r.uid               = self.uid._to_struct()
         r.gid               = self.gid._to_struct()
         r.rule_flag         = self.rule_flag
@@ -974,15 +977,23 @@ class PFRule(PFObject):
         if self.pktrate.limit:
             s += " {.pktrate}".format(self)
 
-        if self.scrub_flags & PFSTATE_SETMASK:
+        if self.scrub_flags & PFSTATE_SETMASK or self.qname or \
+           self.rule_flag & PFRULE_SETDELAY:
             opts = []
             if self.scrub_flags[0] != PFSTATE_SETPRIO:
                 if self.set_prio[0] == self.set_prio[1]:
                     opts.append("prio {}".format(self.set_prio[0]))
                 else:
                     opts.append("prio ({}, {})".format(*self.set_prio))
+            if self.qname:
+                if self.pqname:
+                    opts.append("queue ({.qname}, {.pqname})".format(self))
+                else:
+                    opts.append("queue {.qname}".format(self))
             if self.scrub_flags & PFSTATE_SETTOS:
                 opts.append("tos {.set_tos:#04x}".format(self))
+            if self.rule_flag & PFRULE_SETDELAY:
+                opts.append("delay {.delay}".format(self))
             s += " set ( {} )".format(", ".join(opts))
 
         has_opts = False

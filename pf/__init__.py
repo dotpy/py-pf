@@ -33,9 +33,9 @@ import os
 
 
 __author__  = "Daniele Mazzocchio <danix@kernel-panic.it>"
-__version__ = "0.1.9"
+__version__ = "0.2.0"
 
-__OBSD_VERSION__ = "6.3"
+__OBSD_VERSION__ = "6.4"
 
 
 from pf.exceptions import PFError

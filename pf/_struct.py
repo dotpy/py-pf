@@ -333,6 +333,7 @@ class pf_rule(Structure):               # From /usr/include/net/pfvar.h
                 ("tag",               c_uint16),
                 ("match_tag",         c_uint16),
                 ("scrub_flags",       c_uint16),
+                ("delay",             c_uint16),
                 ("uid",               pf_rule_uid),
                 ("gid",               pf_rule_gid),
                 ("rule_flag",         c_uint32),
@@ -537,7 +538,12 @@ class hfsc_pktcntr(Structure):          # From /usr/include/net/hfsc.h
 
 
 class hfsc_class_stats(Structure):      # From /usr/include/net/hfsc.h
-    _fields_ = [("class_id",          c_uint),
+    _fields_ = [("xmit_cnt",          hfsc_pktcntr),
+                ("drop_cnt",          hfsc_pktcntr),
+                ("qlength",           c_uint),
+                ("qlimit",            c_uint),
+                ("period",            c_uint),
+                ("class_id",          c_uint),
                 ("class_handle",      c_uint32),
                 ("rsc",               hfsc_sc),
                 ("fsc",               hfsc_sc),
@@ -558,11 +564,6 @@ class hfsc_class_stats(Structure):      # From /usr/include/net/hfsc.h
                 ("vtadj",             c_uint64),
                 ("cur_time",          c_uint64),
                 ("machclk_freq",      c_uint32),
-                ("qlength",           c_uint),
-                ("qlimit",            c_uint),
-                ("xmit_cnt",          hfsc_pktcntr),
-                ("drop_cnt",          hfsc_pktcntr),
-                ("period",            c_uint),
                 ("vtperiod",          c_uint),
                 ("parentperiod",      c_uint),
                 ("nactive",           c_int),
