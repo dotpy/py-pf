@@ -1,3 +1,8 @@
+May 7, 2019 -- version 0.2.1
+----------------------------
+- Tested on OpenBSD 6.5
+
+
 Nov 23, 2018 -- version 0.2.0
 -----------------------------
 - Updated to OpenBSD 6.4
