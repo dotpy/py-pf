@@ -188,7 +188,7 @@ class pfsync_state(Structure):          # From /usr/include/net/pfvar.h
                 ("proto",             c_uint8),
                 ("direction",         c_uint8),
                 ("log",               c_uint8),
-                ("pad0",              c_uint8),
+                ("rt",                c_uint8),
                 ("timeout",           c_uint8),
                 ("sync_flags",        c_uint8),
                 ("updates",           c_uint8),
@@ -277,6 +277,7 @@ class pf_threshold(Structure):          # From /usr/include/net/pfvar.h
 class divert(Structure):                # From /usr/include/net/pfvar.h
     _fields_ = [("addr",              pf_addr),
                 ("port",              c_uint16),
+                ("rdomain",           c_uint16),
                 ("type",              c_uint8)]
 
 
@@ -461,6 +462,7 @@ class pfi_kif(Structure):               # From /usr/include/net/pfvar.h
                 ("pfik_states",       c_int),
                 ("pfik_rules",        c_int),
                 ("pfik_routes",       c_int),
+                ("pfik_srcnodes",     c_int),
                 ("pfik_dynaddrs",     c_void_p * 2)]  # TAILQ_HEAD(,pfi_dynaddr)
 
 
@@ -591,7 +593,10 @@ class ifreq(Structure):           # From /usr/include/net/if.h
                     ("ifru_broadaddr", _sockaddr),
                     ("ifru_flags",    c_short),
                     ("ifru_metric",   c_int),
-                    ("ifru_data",     c_char_p)]      # caddr_t
+                    ("ifru_vnetid",   c_int64),
+                    ("ifru_media",    c_uint64),
+                    ("ifru_data",     c_char_p),      # caddr_t
+                    ("ifru_index",    c_uint)]
 
     _fields_ = [("ifr_name",          c_char * IFNAMSIZ),
                 ("ifr_ifru",          _ifr_ifru)]
@@ -599,22 +604,13 @@ class ifreq(Structure):           # From /usr/include/net/if.h
 
 
 class if_data(Structure):               # From /usr/include/net/if.h
-    _MCLPOOLS = 7
-
-    class _mclpool(Structure):          # From /usr/include/net/if.h
-        _fields_ = [("mcl_grown",    c_uint),
-                    ("mcl_alive",    c_ushort),
-                    ("mcl_hwm",      c_ushort),
-                    ("mcl_cwm",      c_ushort),
-                    ("mcl_lwm",      c_ushort)]
-
     _fields_ = [("ifi_type",         c_ubyte),
                 ("ifi_addrlen",      c_ubyte),
                 ("ifi_hdrlen",       c_ubyte),
                 ("ifi_link_state",   c_ubyte),
                 ("ifi_mtu",          c_uint32),
                 ("ifi_metric",       c_uint32),
-                ("ifi_pad",          c_uint32),
+                ("ifi_rdomain",      c_uint32),
                 ("ifi_baudrate",     c_uint64),
                 ("ifi_ipackets",     c_uint64),
                 ("ifi_ierrors",      c_uint64),
@@ -626,10 +622,10 @@ class if_data(Structure):               # From /usr/include/net/if.h
                 ("ifi_imcasts",      c_uint64),
                 ("ifi_omcasts",      c_uint64),
                 ("ifi_iqdrops",      c_uint64),
+                ("ifi_oqdrops",      c_uint64),
                 ("ifi_noproto",      c_uint64),
                 ("ifi_capabilities", c_uint32),
-                ("ifi_lastchange",   timeval),
-                ("ifi_mclpool",      _mclpool * _MCLPOOLS)]
+                ("ifi_lastchange",   timeval)]
 
 
 class pfioc_synflwats(Structure):      # From /usr/include/net/pfvar.h
