@@ -108,7 +108,7 @@ class PFTable(PFObject):
         """Check argument and initialize class attributes."""
         if table is None:
             table = pfr_table()
-        elif isinstance(table, basestring):
+        elif isinstance(table, str):
             table = pfr_table(pfrt_name=table)
 
         self._addrs = []

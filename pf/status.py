@@ -103,7 +103,7 @@ class PFStatus(PFObject):
             day, hrs = divmod(day, 24)
             s += " for {} days {:02}:{:02}:{:02}".format(day, hrs, min, sec)
 
-        dbg = next((k for k, v in dbg_levels.iteritems() if v == self.debug),
+        dbg = next((k for k, v in dbg_levels.items() if v == self.debug),
                    "unknown")
         s = "{:<44}{:>15}\n\n".format(s, "Debug: " + dbg)
         s += "Hostid:   0x{.hostid:08x}\n".format(self)
@@ -126,26 +126,26 @@ class PFStatus(PFObject):
         s += "{:<27} {:>14} {:>16}\n".format("State Table", "Total", "Rate")
         s += "  {:<25} {.states:>14d}\n".format("current entries", self)
         s += "  {:<25} {.states_halfopen:>14d}".format("half-open tcp", self)
-        for k, v in self.fcnt.iteritems():
+        for k, v in self.fcnt.items():
             s += "\n  {:<25} {:>14d} ".format(k, v)
             if self.since and runtime:
                 s += "{:>14.1f}/s".format(float(v)/runtime)
 
         s += "\nSource Tracking Table\n"
         s += "  {:<25} {.src_nodes:>14d}".format("current entries", self)
-        for k, v in self.scnt.iteritems():
+        for k, v in self.scnt.items():
             s += "\n  {:<25} {:>14d} ".format(k, v)
             if self.since and runtime:
                 s += "{:>14.1f}/s".format(float(v)/runtime)
 
         s += "\nCounters"
-        for k, v in self.cnt.iteritems():
+        for k, v in self.cnt.items():
             s += "\n  {:<25} {:>14d} ".format(k, v)
             if self.since and runtime:
                 s += "{:>14.1f}/s".format(float(v)/runtime)
 
         s += "\nLimit Counters"
-        for k, v in self.lcnt.iteritems():
+        for k, v in self.lcnt.items():
             s += "\n  {:<25} {:>14d} ".format(k, v)
             if self.since and runtime:
                 s += "{:>14.1f}/s".format(float(v)/runtime)

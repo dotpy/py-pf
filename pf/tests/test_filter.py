@@ -56,7 +56,7 @@ class TestPacketFilter(unittest.TestCase):
 
     def test_set_limit(self):
         limits = {"states": 5000, "tables": 2000}
-        for limit, value in limits.iteritems():
+        for limit, value in limits.items():
             _value = self.pf.get_limit(limit)
             self.pf.set_limit(limit, value)
             self.assertEqual(self.pf.get_limit(limit), value)
@@ -64,7 +64,7 @@ class TestPacketFilter(unittest.TestCase):
 
     def test_set_timeout(self):
         timeouts = {"frag": 25, "interval": 20}
-        for tmout, value in timeouts.iteritems():
+        for tmout, value in timeouts.items():
             _value = self.pf.get_timeout(tmout)
             self.pf.set_timeout(tmout, value)
             self.assertEqual(self.pf.get_timeout(tmout), value)

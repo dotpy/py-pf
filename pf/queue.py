@@ -35,12 +35,12 @@ class ServiceCurve(PFObject):
     def _to_struct(self):
         """ """
         sc = pf._struct.pf_queue_scspec()
-        if (isinstance(self.bandwidth, basestring) and
+        if (isinstance(self.bandwidth, str) and
             self.bandwidth.endswith("%")):
             sc.m2.percent = int(self.bandwidth[:-1])
         else:
             sc.m2.absolute = self.bandwidth
-        if (isinstance(self.burst, basestring) and
+        if (isinstance(self.burst, str) and
             self.burst.endswith("%")):
             sc.m1.percent = int(self.burst[:-1])
         else:
@@ -54,7 +54,7 @@ class ServiceCurve(PFObject):
 
     def _str_bandwidth(self, bw):
         """ """
-        return bw if isinstance(bw, basestring) else rate2str(bw)
+        return bw if isinstance(bw, str) else rate2str(bw)
 
     def _to_string(self):
         """ """
@@ -116,7 +116,7 @@ class PFQueue(PFObject):
 
     def __init__(self, queue=None, **kw):
         """ """
-        if isinstance(queue, basestring):
+        if isinstance(queue, str):
             queue = pf._struct.pf_queuespec(qname=queue, qlimit=DEFAULT_QLIMIT)
         elif queue is None:
             queue = pf._struct.pf_queuespec()

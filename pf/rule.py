@@ -29,7 +29,7 @@ __all__ = ['PFUid',
 # Helper functions
 def azero(seq):
     """Return True if all numbers in 'seq' are 0s."""
-    return not filter(None, seq)
+    return all(v == 0 for v in seq)
 
 
 class PFOp(PFObject):
@@ -39,7 +39,7 @@ class PFOp(PFObject):
         """Check arguments and initialize instance attributes."""
         self.op = op
 
-        if isinstance(num, basestring) or isinstance(num, Structure):
+        if isinstance(num, str) or isinstance(num, Structure):
             super(PFOp, self).__init__(num)
         elif num is None:
             self.num = (0, 0)
@@ -216,7 +216,7 @@ class PFAddr(PFObject):
         self.af = af
 
         if addr is None:
-            t = (kw["type"] if kw.has_key("type") else PF_ADDR_ADDRMASK)
+            t = kw.get("type", PF_ADDR_ADDRMASK)
             addr = pf_addr_wrap(type=t)
 
         super(PFAddr, self).__init__(addr, **kw)
@@ -1051,7 +1051,7 @@ class PFRule(PFObject):
                 opts.append("pflow")
             for i, t in enumerate(self.timeout):
                 if t:
-                    tm = [k for (k, v) in pf_timeouts.iteritems() if v == i][0]
+                    tm = [k for (k, v) in pf_timeouts.items() if v == i][0]
                     opts.append("{} {}".format(tm, t))
 
             s += " ({})".format(", ".join(opts))

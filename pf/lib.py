@@ -33,21 +33,21 @@ class Rule(PFRule):
         kw.setdefault("af", self.af)
 
         # Try to guess protocol
-        if not kw.has_key("proto"):
+        if "proto" not in kw:
             kw.setdefault("proto", 0)
-            if not kw["proto"] and kw.has_key("src"):
+            if not kw["proto"] and "src" in kw:
                 kw["proto"] = kw["src"].port.proto or 0
-            if not kw["proto"] and kw.has_key("dst"):
+            if not kw["proto"] and "dst" in kw:
                 kw["proto"] = kw["dst"].port.proto or 0
         # Set default flags on TCP 'pass' rules
         if kw["proto"] == socket.IPPROTO_TCP and kw["action"] == PF_PASS and \
-           not kw.has_key("flags"):
+           not "flags" in kw:
             kw.update({"flags": "S", "flagset": "SA"})
 
         # Convert ICMP type string to constant
-        if kw.has_key("type") and isinstance(kw["type"], basestring):
+        if "type" in kw and isinstance(kw["type"], str):
             types = icmp6_types if (kw["af"] == socket.AF_INET6) else icmp_types
-            for key, value in types.iteritems():
+            for key, value in types.items():
                 if value == kw["type"]:
                     kw["type"] = key + 1
                     break
@@ -55,9 +55,9 @@ class Rule(PFRule):
                 raise ValueError("Invalid ICMP type: {.type}".format(kw))
 
         # Convert ICMP code string to constants
-        if kw.has_key("code") and isinstance(kw["code"], basestring):
+        if "code" in kw and isinstance(kw["code"], str):
             codes = icmp6_codes if (kw["af"] == socket.AF_INET6) else icmp_codes
-            for key, value in codes.iteritems():
+            for key, value in codes.items():
                 if value == kw["code"]:
                     kw["type"], kw["code"] = key[0]+1, key[1]+1
                     break

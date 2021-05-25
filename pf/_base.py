@@ -14,7 +14,7 @@ class PFObject(object):
 
         if self._struct_type is not None and isinstance(obj, self._struct_type):
             self._from_struct(obj)
-        elif isinstance(obj, basestring):
+        elif isinstance(obj, str):
             self._from_string(obj)
 
         self._from_kwargs(**kwargs)
@@ -26,7 +26,7 @@ class PFObject(object):
         raise NotImplementedError()
 
     def _from_kwargs(self, **kwargs):
-        for k, v in kwargs.iteritems():
+        for k, v in kwargs.items():
             if hasattr(self, k):
                 setattr(self, k, v)
             else:

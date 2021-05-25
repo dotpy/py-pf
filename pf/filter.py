@@ -29,9 +29,9 @@ __all__ = ['PacketFilter']
 
 # ioctl() operations
 IOCPARM_MASK     = 0x1fff
-IOC_VOID         = 0x20000000L
-IOC_OUT          = 0x40000000L
-IOC_IN           = 0x80000000L
+IOC_VOID         = 0x20000000
+IOC_OUT          = 0x40000000
+IOC_IN           = 0x80000000
 IOC_INOUT        = IOC_IN | IOC_OUT
 
 def _IOC(inout, group, num, len):
@@ -153,7 +153,7 @@ class PacketFilter(object):
         with open(self.dev, 'w') as d:
             try:
                 ioctl(d, DIOCSTART)
-            except IOError, (e, s):
+            except IOError as e:
                 if e != EEXIST:       # EEXIST means PF is already enabled
                     raise
 
@@ -162,7 +162,7 @@ class PacketFilter(object):
         with open(self.dev, 'w') as d:
             try:
                 ioctl(d, DIOCSTOP)
-            except IOError, (e, s):
+            except IOError as e:
                 if e != ENOENT:       # ENOENT means PF is already disabled
                     raise 
 
@@ -233,7 +233,7 @@ class PacketFilter(object):
             with _PFTrans(d):
                 try:
                     ioctl(d, DIOCSETLIMIT, pl)
-                except IOError, (e, s):
+                except IOError as e:
                     if e == EBUSY:
                         raise PFError("Current pool size > {0:d}".format(value))
                     raise
@@ -274,13 +274,13 @@ class PacketFilter(object):
 
     def set_optimization(self, opt="normal"):
         """Set the optimization profile for state handling like pfctl."""
-        for name, val in pf_hints[opt].iteritems():
+        for name, val in pf_hints[opt].items():
             self.set_timeout(name, val)
 
     def get_optimization(self):
         """ """
         tm = self.get_timeout()
-        for name, val in pf_hints.iteritems():
+        for name, val in pf_hints.items():
             if val["tcp.first"] == tm["tcp.first"]:
                 return name
 
@@ -334,7 +334,7 @@ class PacketFilter(object):
             with _PFTrans(d):
                 try:
                     ioctl(d, DIOCSETSTATUSIF, pi)
-                except IOError, (e, s):
+                except IOError as e:
                     if e == EINVAL:
                         raise PFError("Invalid ifname: '{0}'".format(ifname))
                     raise
@@ -493,7 +493,7 @@ class PacketFilter(object):
             for rule in self._get_rules(path, d, clear):
                 if isinstance(rule, PFRule):
                     if not all((getattr(rule, attr) == value)
-                               for (attr, value) in kw.iteritems()):
+                               for (attr, value) in kw.items()):
                         continue
                 rs.append(rule)
         return rs
@@ -624,7 +624,7 @@ class PacketFilter(object):
         for t in buffer[:io.pfrio_size]:
             try:
                 addrs = self.get_addrs(PFTable(t))
-            except IOError, (e, s):
+            except IOError as e:
                 pass       # Ignore tables of which you can't get the addresses
             else:
                 tables.append(PFTable(t, *addrs))
@@ -638,7 +638,7 @@ class PacketFilter(object):
         table name; 'addrs' can be either PFTableAddr instances or strings.
         Return the addresses that match.
         """
-        if isinstance(table, basestring):
+        if isinstance(table, str):
             table = pfr_table(pfrt_name=table)
         else:
             table = pfr_table(pfrt_name=table.name, pfrt_anchor=table.anchor)
@@ -668,7 +668,7 @@ class PacketFilter(object):
         table name; 'addrs' can be either PFTableAddr instances or strings.
         Return the number of addresses effectively added.
         """
-        if isinstance(table, basestring):
+        if isinstance(table, str):
             table = pfr_table(pfrt_name=table)
         else:
             table = pfr_table(pfrt_name=table.name, pfrt_anchor=table.anchor)
@@ -696,7 +696,7 @@ class PacketFilter(object):
 
         Return the number of addresses removed.
         """
-        if isinstance(table, basestring):
+        if isinstance(table, str):
             table = pfr_table(pfrt_name=table)
         else:
             table = pfr_table(pfrt_name=table.name, pfrt_anchor=table.anchor)
@@ -715,7 +715,7 @@ class PacketFilter(object):
         table name; 'addrs' can be either PFTableAddr instances or strings.
         Return the number of addresses deleted.
         """
-        if isinstance(table, basestring):
+        if isinstance(table, str):
             table = pfr_table(pfrt_name=table)
         else:
             table = pfr_table(pfrt_name=table.name, pfrt_anchor=table.anchor)
@@ -746,7 +746,7 @@ class PacketFilter(object):
         Return a tuple containing the number of addresses deleted, added and
         changed.
         """
-        if isinstance(table, basestring):
+        if isinstance(table, str):
             table = pfr_table(pfrt_name=table)
         else:
             table = pfr_table(pfrt_name=table.name, pfrt_anchor=table.anchor)
@@ -775,7 +775,7 @@ class PacketFilter(object):
         'table' can be either a PFTable instance or a string containing the
         table name. Return a list of PFTableAddr objects.
         """
-        if isinstance(table, basestring):
+        if isinstance(table, str):
             table = pfr_table(pfrt_name=table)
         else:
             table = pfr_table(pfrt_name=table.name, pfrt_anchor=table.anchor)
