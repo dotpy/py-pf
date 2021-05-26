@@ -109,7 +109,7 @@ class PFTable(PFObject):
         if table is None:
             table = pfr_table()
         elif isinstance(table, str):
-            table = pfr_table(pfrt_name=table)
+            table = pfr_table(pfrt_name=table.encode())
 
         self._addrs = []
         for addr in addrs:

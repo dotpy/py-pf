@@ -301,6 +301,7 @@ def ctonm(cidr, af):
 
     b = "1" * cidr + "0" * (l - cidr)
     mask = "".join([chr(int(b[i:i+8], 2)) for i in range(0, l, 8)])
+    mask = bytearray([int(b[i:i+8], 2) for i in range(0, l, 8)])
 
     return inet_ntop(af, mask)
 

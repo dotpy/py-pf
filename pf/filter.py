@@ -117,7 +117,7 @@ class _PFTrans(object):
 
         for a, t in zip(self.array, trans_type):
             a.type = t
-            a.anchor = path
+            a.anchor = path.encode()
 
         self._pt = pfioc_trans(size=self.size, esize=sizeof(pfioc_trans_e),
                                array=addressof(self.array))
@@ -458,7 +458,7 @@ class PacketFilter(object):
         if path.endswith("/*"):
             path = path[:-2]
 
-        pr = pfioc_rule(anchor=path)
+        pr = pfioc_rule(anchor=path.encode())
         if clear:
             pr.action = PF_GET_CLR_CNTR
 
@@ -606,7 +606,7 @@ class PacketFilter(object):
         io = pfioc_table(pfrio_esize=sizeof(pfr_table))
 
         if filter is not None:
-            io.pfrio_table = pfr_table(pfrt_anchor=filter.anchor)
+            io.pfrio_table = pfr_table(pfrt_anchor=filter.anchor.encode())
 
         with open(self.dev, 'w') as d:
             while True:
