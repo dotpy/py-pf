@@ -309,11 +309,13 @@ def ctonm(cidr, af):
 def nmtoc(netmask, af):
     """Convert netmask from dotted decimal to CIDR notation."""
     cidr = 0
-    for b in map(ord, inet_pton(af, netmask)):
-        while b:
-            cidr += b & 1
-            b >>= 1
-
+    for b in inet_pton(af, netmask):
+        cidr += bin(b).count("1")
+#    for b in map(ord, inet_pton(af, netmask)):
+#        while b:
+#            cidr += b & 1
+#            b >>= 1
+#
     return cidr
 
 def is_IPaddr(addr):

@@ -290,7 +290,8 @@ class PacketFilter(object):
         Return a tuple of PFIface objects or a single PFIface object if a
         specific 'ifname' is specified.
         """
-        pi = pfioc_iface(pfiio_name=ifname, pfiio_esize=sizeof(pfi_kif))
+        pi = pfioc_iface(pfiio_name=ifname.encode(),
+                         pfiio_esize=sizeof(pfi_kif))
 
         with open(self.dev, 'w') as d:
             ioctl(d, DIOCIGETIFACES, pi)
@@ -305,7 +306,7 @@ class PacketFilter(object):
 
     def set_ifflags(self, ifname, flags):
         """Set the user setable 'flags' on the interface 'ifname'."""
-        pi = pfioc_iface(pfiio_name=ifname, pfiio_flags=flags)
+        pi = pfioc_iface(pfiio_name=ifname.encode(), pfiio_flags=flags)
         with open(self.dev, 'w') as d:
             with _PFTrans(d):
                 ioctl(d, DIOCSETIFFLAG, pi)
@@ -318,7 +319,7 @@ class PacketFilter(object):
         if flags is None:
             flags = PFI_IFLAG_SKIP
 
-        pi = pfioc_iface(pfiio_name=ifname, pfiio_flags=flags)
+        pi = pfioc_iface(pfiio_name=ifname.encode(), pfiio_flags=flags)
         with open(self.dev, 'w') as d:
             with _PFTrans(d):
                 ioctl(d, DIOCCLRIFFLAG, pi)
@@ -329,7 +330,7 @@ class PacketFilter(object):
         If no 'ifname' is provided, turn off the collection of per-interface
         statistics. Raise PFError if 'ifname' is not a valid interface name.
         """
-        pi = pfioc_iface(pfiio_name=ifname)
+        pi = pfioc_iface(pfiio_name=ifname.encode())
         with open(self.dev, 'w') as d:
             with _PFTrans(d):
                 try:
@@ -353,7 +354,7 @@ class PacketFilter(object):
         An optional 'ifname' can be specified in order to clear statistics only
         for a specific interface.
         """
-        pi = pfioc_iface(pfiio_name=ifname)
+        pi = pfioc_iface(pfiio_name=ifname.encode())
         with open(self.dev, 'w') as d:
             ioctl(d, DIOCCLRSTATUS, pi)
 
@@ -471,8 +472,8 @@ class PacketFilter(object):
             pr.nr = nr
             ioctl(dev, DIOCGETRULE, pr)
             if pr.anchor_call:
-                path = os.path.join(pr.anchor, pr.anchor_call)
-                rs = PFRuleset(pr.anchor_call, pr.rule)
+                path = os.path.join(pr.anchor.decode(), pr.anchor_call.decode())
+                rs = PFRuleset(pr.anchor_call.decode(), pr.rule)
                 rs.append(*self._get_rules(path, dev, clear))
                 rules.append(rs)
             else:
@@ -531,11 +532,12 @@ class PacketFilter(object):
                             self._inadefine(t, d, path, a.ticket)
                     elif a.type == PF_TRANS_RULESET:
                         for r in ruleset.rules:
-                            pr = pfioc_rule(ticket=a.ticket, anchor=path,
+                            pr = pfioc_rule(ticket=a.ticket,
+                                            anchor=path.encode(),
                                             rule=r._to_struct())
 
                             if isinstance(r, PFRuleset):
-                                pr.anchor_call = r.name
+                                pr.anchor_call = r.name.encode()
 
                             ioctl(d, DIOCADDRULE, pr)
 
@@ -586,8 +588,8 @@ class PacketFilter(object):
 
         buffer = (pfr_table * len(tables))()
         for (t, b) in zip(tables, buffer):
-            b.pfrt_name = t.name
-            b.pfrt_anchor = t.anchor
+            b.pfrt_name = t.name.encode()
+            b.pfrt_anchor = t.anchor.encode()
 
         io.pfrio_buffer = addressof(buffer)
 
@@ -639,9 +641,10 @@ class PacketFilter(object):
         Return the addresses that match.
         """
         if isinstance(table, str):
-            table = pfr_table(pfrt_name=table)
+            table = pfr_table(pfrt_name=table.encode())
         else:
-            table = pfr_table(pfrt_name=table.name, pfrt_anchor=table.anchor)
+            table = pfr_table(pfrt_name=table.name.encode(),
+                              pfrt_anchor=table.anchor.encode())
 
         _addrs = []
         for addr in addrs:
@@ -669,9 +672,10 @@ class PacketFilter(object):
         Return the number of addresses effectively added.
         """
         if isinstance(table, str):
-            table = pfr_table(pfrt_name=table)
+            table = pfr_table(pfrt_name=table.encode())
         else:
-            table = pfr_table(pfrt_name=table.name, pfrt_anchor=table.anchor)
+            table = pfr_table(pfrt_name=table.name.encode(),
+                              pfrt_anchor=table.anchor.encode())
 
         _addrs = []
         for addr in addrs:
@@ -699,7 +703,8 @@ class PacketFilter(object):
         if isinstance(table, str):
             table = pfr_table(pfrt_name=table)
         else:
-            table = pfr_table(pfrt_name=table.name, pfrt_anchor=table.anchor)
+            table = pfr_table(pfrt_name=table.name.encode(),
+                              pfrt_anchor=table.anchor.encode())
 
         io = pfioc_table(pfrio_table=table)
 
@@ -718,7 +723,8 @@ class PacketFilter(object):
         if isinstance(table, str):
             table = pfr_table(pfrt_name=table)
         else:
-            table = pfr_table(pfrt_name=table.name, pfrt_anchor=table.anchor)
+            table = pfr_table(pfrt_name=table.name.encode(),
+                              pfrt_anchor=table.anchor.encode())
 
         _addrs = []
         for addr in addrs:
@@ -749,7 +755,8 @@ class PacketFilter(object):
         if isinstance(table, str):
             table = pfr_table(pfrt_name=table)
         else:
-            table = pfr_table(pfrt_name=table.name, pfrt_anchor=table.anchor)
+            table = pfr_table(pfrt_name=table.name.encode(),
+                              pfrt_anchor=table.anchor.encode())
 
         _addrs = []
         for addr in addrs:
@@ -776,9 +783,10 @@ class PacketFilter(object):
         table name. Return a list of PFTableAddr objects.
         """
         if isinstance(table, str):
-            table = pfr_table(pfrt_name=table)
+            table = pfr_table(pfrt_name=table.encode())
         else:
-            table = pfr_table(pfrt_name=table.name, pfrt_anchor=table.anchor)
+            table = pfr_table(pfrt_name=table.name.encode(),
+                              pfrt_anchor=table.anchor.encode())
 
         io = pfioc_table(pfrio_table=table, pfrio_esize=sizeof(pfr_addr))
 
@@ -836,8 +844,8 @@ class PacketFilter(object):
 
         buffer = (pfr_table * len(tables))()
         for (t, b) in zip(tables, buffer):
-            b.pfrt_name = t.name
-            b.pfrt_anchor = t.anchor
+            b.pfrt_name = t.name.encode()
+            b.pfrt_anchor = t.anchor.encode()
 
         io.pfrio_buffer = addressof(buffer)
 

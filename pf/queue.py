@@ -125,9 +125,9 @@ class PFQueue(PFObject):
 
     def _from_struct(self, q):
         """ """
-        self.qname      = q.qname
-        self.parent     = q.parent
-        self.ifname     = q.ifname
+        self.qname      = q.qname.decode()
+        self.parent     = q.parent.decode()
+        self.ifname     = q.ifname.decode()
         self.flags      = q.flags
         self.qlimit     = q.qlimit
         self.qid        = q.qid
@@ -140,9 +140,9 @@ class PFQueue(PFObject):
     def _to_struct(self):
         """ """
         q = pf._struct.pf_queuespec()
-        q.qname      = self.qname
-        q.parent     = self.parent
-        q.ifname     = self.ifname
+        q.qname      = self.qname.encode()
+        q.parent     = self.parent.encode()
+        q.ifname     = self.ifname.encode()
         q.flags      = self.flags
         q.qlimit     = self.qlimit
         q.qid        = self.qid

@@ -240,19 +240,19 @@ class PFAddr(PFObject):
             addr = mask = None
 
         if self.type == PF_ADDR_DYNIFTL:
-            self.ifname = a.v.ifname
+            self.ifname = a.v.ifname.decode()
             self.iflags = a.iflags
             self.dyncnt = a.p.dyncnt
             self.mask = mask
         elif self.type == PF_ADDR_TABLE:
-            self.tblname = a.v.tblname
+            self.tblname = a.v.tblname.decode()
             self.tblcnt = a.p.tblcnt
         elif self.type == PF_ADDR_ADDRMASK:
             self.addr = addr
             self.mask = mask
         elif self.type == PF_ADDR_RTLABEL:
-            self.rtlabelname = a.v.rtlabelname
-            self.rtlabel = a.v.rtlabel
+            self.rtlabelname = a.v.rtlabelname.decode()
+            self.rtlabel = a.v.rtlabel.decode()
         elif self.type == PF_ADDR_RANGE:
             self.addr = (addr, mask)
 
@@ -341,16 +341,16 @@ class PFAddr(PFObject):
         a.type = self.type
 
         if self.type == PF_ADDR_DYNIFTL:
-            a.v.ifname = self.ifname
+            a.v.ifname = self.ifname.encode()
             a.p.dyncnt = self.dyncnt
             a.iflags = self.iflags
             if self.af == AF_UNSPEC:
-                mask = '\xff' * 16
+                mask = b'\xff' * 16
             else:
                 mask = inet_pton(self.af, self.mask)
             memmove(a.v.a.mask.v6, c_char_p(mask), len(mask))
         elif self.type == PF_ADDR_TABLE:
-            a.v.tblname = self.tblname
+            a.v.tblname = self.tblname.encode()
             a.p.tblcnt = self.tblcnt
         elif self.type == PF_ADDR_ADDRMASK and self.addr:
             addr = inet_pton(self.af, self.addr)
@@ -358,7 +358,7 @@ class PFAddr(PFObject):
             memmove(a.v.a.addr.v6, c_char_p(addr), len(addr))
             memmove(a.v.a.mask.v6, c_char_p(mask), len(mask))
         elif self.type == PF_ADDR_RTLABEL:
-            a.v.rtlabelname = self.rtlabelname
+            a.v.rtlabelname = self.rtlabelname.encode()
             a.v.rtlabel = self.rtlabel
         elif self.type == PF_ADDR_RANGE:
             addr1 = inet_pton(self.af, self.addr[0])
@@ -421,7 +421,7 @@ class PFAddr(PFObject):
             return (self.addr == a.addr and
                     self.mask == a.mask)
         elif self.type == PF_ADDR_RTLABEL:
-            return (self.rtlabelname == a.rtlabelname)
+            return (self.rtlabelname == a.rtlabelname.decode())
         elif self.type == PF_ADDR_RANGE:
             return (self.addr == a.addr)
 
@@ -505,7 +505,7 @@ class PFPool(PFObject):
         self.addr       = PFAddr(p.addr, self._af)
         self.key        = "{:#010x}{:08x}{:08x}{:08x}".format(*p.key.key32)
         self.counter    = p.counter
-        self.ifname     = p.ifname
+        self.ifname     = p.ifname.decode()
         self.tblidx     = p.tblidx
         self.states     = p.states
         self.curweight  = p.curweight
@@ -521,7 +521,7 @@ class PFPool(PFObject):
             p.addr = PFAddr(type=PF_ADDR_NONE)._to_struct()
         else:
             p.addr       = self.addr._to_struct()
-        p.ifname     = self.ifname
+        p.ifname     = self.ifname.encode()
         p.states     = self.states
         p.curweight  = self.curweight
         p.weight     = self.weight
@@ -684,8 +684,8 @@ class PFRule(PFObject):
         self.dst               = PFRuleAddr(r.dst, af=r.af, proto=r.proto)
         #skip
         self.label             = r.label
-        self.ifname            = r.ifname
-        self.rcv_ifname        = r.rcv_ifname
+        self.ifname            = r.ifname.decode()
+        self.rcv_ifname        = r.rcv_ifname.decode()
         self.qname             = r.qname
         self.pqname            = r.pqname
         self.tagname           = r.tagname
@@ -775,8 +775,8 @@ class PFRule(PFObject):
         r.dst               = self.dst._to_struct()
         #skip
         r.label             = self.label
-        r.ifname            = self.ifname
-        r.rcv_ifname        = self.rcv_ifname
+        r.ifname            = self.ifname.encode()
+        r.rcv_ifname        = self.rcv_ifname.encode()
         r.qname             = self.qname
         r.pqname            = self.pqname
         r.tagname           = self.tagname

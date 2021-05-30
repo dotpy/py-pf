@@ -28,7 +28,7 @@ class PFStatus(PFObject):
 
     def _from_struct(self, s):
         """Initialize class attributes from a pf_status structure."""
-        self.ifname          = s.ifname
+        self.ifname          = s.ifname.decode()
         self.running         = bool(s.running)
         self.stateid         = s.stateid
         self.syncookies_inflight = s.syncookies_inflight

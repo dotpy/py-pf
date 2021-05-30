@@ -37,7 +37,7 @@ class PFTableAddr(PFObject):
         self.mask   = ctonm(a.pfra_net, self.af)
         self.neg    = bool(a.pfra_not)
         self.fback  = a.pfra_fback
-        self.ifname = a.pfra_ifname
+        self.ifname = a.pfra_ifname.decode()
         self.type   = a.pfra_type
         self.states = a.pfra_states
         self.weight = a.pfra_weight
@@ -84,7 +84,7 @@ class PFTableAddr(PFObject):
         a.pfra_net    = nmtoc(self.mask, self.af)
         a.pfra_not    = int(self.neg)
         a.pfra_fback  = self.fback
-        a.pfra_ifname = self.ifname
+        a.pfra_ifname = self.ifname.encode()
         a.pfra_type   = self.type
 
         return a
@@ -126,8 +126,8 @@ class PFTable(PFObject):
 
     def _from_struct(self, t):
         """Initialize class attributes from a pfr_table structure"""
-        self.anchor = t.pfrt_anchor
-        self.name   = t.pfrt_name
+        self.anchor = t.pfrt_anchor.decode()
+        self.name   = t.pfrt_name.decode()
         self.flags  = t.pfrt_flags
         self.fback  = t.pfrt_fback
 
@@ -135,8 +135,8 @@ class PFTable(PFObject):
         """Convert this instance to a pfr_table structure."""
         t = pfr_table()
 
-        t.pfrt_anchor = self.anchor
-        t.pfrt_name   = self.name
+        t.pfrt_anchor = self.anchor.encode()
+        t.pfrt_name   = self.name.encode()
         t.pfrt_flags  = self.flags & (PFR_TFLAG_CONST|PFR_TFLAG_PERSIST)
         t.pfrt_fback  = self.fback
 
