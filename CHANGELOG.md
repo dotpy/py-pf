@@ -1,3 +1,9 @@
+Mar 12, 2022 -- version 0.2.2
+-----------------------------
+- Switching to Python 3 on the main branch
+- Tested on OpenBSD 7.0
+
+
 May 7, 2019 -- version 0.2.1
 ----------------------------
 - Tested on OpenBSD 6.5
