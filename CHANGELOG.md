@@ -1,3 +1,8 @@
+Dec 22, 2023 -- version 0.2.3
+-----------------------------
+- Updated to OpenBSD 7.4
+
+
 Mar 12, 2022 -- version 0.2.2
 -----------------------------
 - Switching to Python 3 on the main branch

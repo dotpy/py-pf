@@ -164,7 +164,7 @@ class PFIface(PFObject):
 
     def _from_struct(self, i):
         """Initialize class attributes from a pfi_kif structure."""
-        self.name      = i.pfik_name
+        self.name      = i.pfik_name.decode()
         self.packets   = {'in':  ((i.pfik_packets[0][0][PF_PASS],
                                    i.pfik_packets[1][0][PF_PASS]),
                                   (i.pfik_packets[0][0][PF_DROP],

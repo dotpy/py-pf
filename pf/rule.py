@@ -858,6 +858,9 @@ class PFRule(PFObject):
                       "nat-anchor", "binat-anchor", "binat-anchor",
                       "rdr-anchor", "rdr-anchor")
 
+        if self.rule_flag & PFRULE_EXPIRED:
+            return ""
+
         if self.action > PF_MATCH:
             s = "action({.action})".format(self)
         elif isinstance(self, PFRuleset):
@@ -1000,7 +1003,7 @@ class PFRule(PFObject):
         if (self.max_states or self.max_src_nodes or self.max_src_states)  or \
            self.rule_flag & (PFRULE_NOSYNC|PFRULE_SRCTRACK|PFRULE_IFBOUND) or \
            self.rule_flag & (PFRULE_STATESLOPPY|PFRULE_PFLOW)              or \
-           filter(None, self.timeout):
+           any(self.timeout):
             has_opts = True
 
         if not self.keep_state and self.action == PF_PASS and \

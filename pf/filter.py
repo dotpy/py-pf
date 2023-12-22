@@ -284,25 +284,28 @@ class PacketFilter(object):
             if val["tcp.first"] == tm["tcp.first"]:
                 return name
 
-    def get_ifaces(self, ifname=""):
+    def get_ifaces(self, ifname="", size=8):
         """Get the list of interfaces and interface drivers known to pf.
 
         Return a tuple of PFIface objects or a single PFIface object if a
         specific 'ifname' is specified.
         """
         pi = pfioc_iface(pfiio_name=ifname.encode(),
-                         pfiio_esize=sizeof(pfi_kif))
+                         pfiio_esize=sizeof(pfi_kif),
+                         pfiio_size=size+1)
 
         with open(self.dev, 'w') as d:
-            ioctl(d, DIOCIGETIFACES, pi)
             buf = (pfi_kif * pi.pfiio_size)()
             pi.pfiio_buffer = addressof(buf)
             ioctl(d, DIOCIGETIFACES, pi)
 
-        if ifname and len(buf) == 1:
+        if ifname:
             return PFIface(buf[0])
         else:
-            return tuple(map(PFIface, buf))
+            ifaces = tuple(i for i in map(PFIface, buf) if i.name)
+            if len(ifaces) == size:
+                return self.get_ifaces(ifname, size*2)
+            return ifaces
 
     def set_ifflags(self, ifname, flags):
         """Set the user setable 'flags' on the interface 'ifname'."""
@@ -370,7 +373,7 @@ class PacketFilter(object):
         with open(self.dev, 'w') as d:
             while True:
                 if l:
-                    ps_states = (pfsync_state * (l / sizeof(pfsync_state)))()
+                    ps_states = (pfsync_state * int(l / sizeof(pfsync_state)))()
                     ps.ps_buf = addressof(ps_states)
                     ps.ps_len = l
                 ioctl(d, DIOCGETSTATES, ps)
@@ -380,7 +383,7 @@ class PacketFilter(object):
                     break
                 l = (ps.ps_len * 2)
 
-        ps_num = (ps.ps_len / sizeof(pfsync_state))
+        ps_num = int(ps.ps_len / sizeof(pfsync_state))
         return tuple([PFState(s) for s in ps_states[:ps_num]])
 
     def clear_states(self, ifname=""):

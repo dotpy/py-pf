@@ -57,7 +57,7 @@ class PFStateKey(PFObject):
 
 
         a[0].v.a.addr, a[1].v.a.addr = k.addr
-        mask = '\xff' * {AF_INET: 4, AF_INET6: 16}[self.af]
+        mask = b'\xff' * {AF_INET: 4, AF_INET6: 16}[self.af]
         memmove(a[0].v.a.mask.v6, c_char_p(mask), len(mask))
         memmove(a[1].v.a.mask.v6, c_char_p(mask), len(mask))
 
@@ -78,7 +78,7 @@ class PFState(PFObject):
     def _from_struct(self, s):
         """Initialize class attributes from a pfsync_state structure."""
         self.id              = unpack("Q", pack(">Q", s.id))[0]
-        self.ifname          = s.ifname
+        self.ifname          = s.ifname.decode()
 
         a                    = pf_addr_wrap()
         a.v.a.addr           = s.rt_addr

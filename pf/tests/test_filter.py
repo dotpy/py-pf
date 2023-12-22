@@ -86,7 +86,7 @@ class TestPacketFilter(unittest.TestCase):
 
     def test_clear_status(self):
         self.pf.clear_status()
-        self.assertGreaterEqual(self.pf.get_status().since, pf._utils.uptime())
+        self.assertGreaterEqual(pf._utils.uptime(), self.pf.get_status().since)
 
     def __test_clear_states(self):
         self.pf.clear_rules()

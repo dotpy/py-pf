@@ -277,7 +277,6 @@ class pf_threshold(Structure):          # From /usr/include/net/pfvar.h
 class divert(Structure):                # From /usr/include/net/pfvar.h
     _fields_ = [("addr",              pf_addr),
                 ("port",              c_uint16),
-                ("rdomain",           c_uint16),
                 ("type",              c_uint8)]
 
 
@@ -348,8 +347,8 @@ class pf_rule(Structure):               # From /usr/include/net/pfvar.h
                 ("keep_state",        c_uint8),
                 ("af",                c_uint8),       # sa_family_t
                 ("proto",             c_uint8),
-                ("type",              c_uint8),
-                ("code",              c_uint8),
+                ("type",              c_uint16),
+                ("code",              c_uint16),
                 ("flags",             c_uint8),
                 ("flagset",           c_uint8),
                 ("min_ttl",           c_uint8),
@@ -365,10 +364,7 @@ class pf_rule(Structure):               # From /usr/include/net/pfvar.h
                 ("set_prio",          c_uint8 * 2),
                 ("naf",               c_uint8),       # sa_family_t
                 ("rcvifnot",          c_uint8),
-                ("pad",               c_uint8 * 2),
                 ("divert",            divert),
-                ("gcle",              c_void_p),      # SLIST_ENTRY(pf_rule)
-                ("ruleset",           c_void_p),      # struct pf_ruleset *
                 ("exptime",           c_int64)]       # time_t
 
 
@@ -463,6 +459,7 @@ class pfi_kif(Structure):               # From /usr/include/net/pfvar.h
                 ("pfik_rules",        c_int),
                 ("pfik_routes",       c_int),
                 ("pfik_srcnodes",     c_int),
+                ("pfik_flagrefs",     c_int),
                 ("pfik_dynaddrs",     c_void_p * 2)]  # TAILQ_HEAD(,pfi_dynaddr)
 
 
